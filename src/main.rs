@@ -1,3 +1,5 @@
+mod raytris;
+
 fn main() {
-  println!("Hello, world!");
+  raytris::Raytris::new().run();
 }
