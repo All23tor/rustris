@@ -5,7 +5,7 @@ use raylib::{
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Option {
   SinglePlayer,
   TwoPlayer,
@@ -13,8 +13,14 @@ pub enum Option {
   Exit,
 }
 
+const OPTIONS: [Option; 4] = [
+  Option::SinglePlayer,
+  Option::TwoPlayer,
+  Option::Settings,
+  Option::Exit,
+];
 impl Option {
-  fn into_str(self) -> &'static str {
+  fn name(self) -> &'static str {
     match self {
       Self::SinglePlayer => "Single Player",
       Self::TwoPlayer => "Two Player",
@@ -27,21 +33,19 @@ impl Option {
     match self {
       Self::SinglePlayer => Self::TwoPlayer,
       Self::TwoPlayer => Self::Settings,
-      Self::Settings => Self::SinglePlayer,
-      Self::Exit => Self::Exit,
+      Self::Settings => Self::Exit,
+      Self::Exit => Self::SinglePlayer,
     }
   }
 
   fn prev(self) -> Self {
     match self {
-      Self::SinglePlayer => Self::Settings,
+      Self::SinglePlayer => Self::Exit,
       Self::TwoPlayer => Self::SinglePlayer,
       Self::Settings => Self::TwoPlayer,
-      Self::Exit => Self::Exit,
+      Self::Exit => Self::SinglePlayer,
     }
   }
-
-  const OPTIONS: [Option; 3] = [Option::SinglePlayer, Option::TwoPlayer, Option::Settings];
 }
 
 pub struct MainMenu {
@@ -58,8 +62,7 @@ impl MainMenu {
   pub fn draw(&self, rld: &mut RaylibDrawHandle) {
     let screen_width = rld.get_screen_width() as f32;
     let screen_height = rld.get_screen_height() as f32;
-
-    let font_size = screen_height / 10.0;
+    let font_size = screen_height / 12.0;
     let font_size_big = screen_height / 4.0;
 
     rld.clear_background(Color::LIGHTGRAY);
@@ -72,49 +75,27 @@ impl MainMenu {
     );
 
     let box_width = 8.0 * font_size;
-    let box_height = 1.3 * font_size;
     let separation = 1.5 * font_size;
-
-    for (idx, option) in Option::OPTIONS.iter().enumerate() {
-      let s = option.into_str();
-      let is_selected = *option == self.selected_option;
+    let box_height = 1.3 * font_size;
+    for (idx, &option) in OPTIONS.iter().enumerate() {
+      let name = option.name();
+      let is_selected = option == self.selected_option;
       let enclosing_box = Rectangle {
         x: (screen_width - box_width) / 2.0,
         y: (screen_height - box_height + font_size) / 2.0 + idx as f32 * separation,
         width: box_width,
         height: box_height,
       };
-
-      rld.draw_rectangle_rec(
-        enclosing_box,
-        if is_selected {
-          Color::SKYBLUE
-        } else {
-          Color::GRAY
-        },
-      );
-
-      rld.draw_rectangle_lines_ex(
-        enclosing_box,
-        font_size / 10.0,
-        if is_selected {
-          Color::BLUE
-        } else {
-          Color::BLACK
-        },
-      );
-
-      rld.draw_text(
-        s,
-        (screen_width as i32 - rld.measure_text(s, font_size as i32)) / 2,
-        (screen_height / 2.0 + idx as f32 * separation) as i32,
-        font_size as i32,
-        if is_selected {
-          Color::BLUE
-        } else {
-          Color::BLACK
-        },
-      );
+      let (inner_color, outer_color) = if is_selected {
+        (Color::BLUE, Color::SKYBLUE)
+      } else {
+        (Color::BLACK, Color::GRAY)
+      };
+      rld.draw_rectangle_rec(enclosing_box, outer_color);
+      rld.draw_rectangle_lines_ex(enclosing_box, font_size / 10.0, inner_color);
+      let name_x = (screen_width as i32 - rld.measure_text(name, font_size as i32)) / 2;
+      let name_y = (screen_height / 2.0 + idx as f32 * separation) as i32;
+      rld.draw_text(name, name_x, name_y, font_size as i32, inner_color);
     }
   }
 
@@ -127,14 +108,10 @@ impl MainMenu {
   }
 
   pub fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
-    rl.is_key_pressed(KeyboardKey::KEY_ENTER) || rl.is_key_pressed(KeyboardKey::KEY_ESCAPE)
+    rl.is_key_pressed(KeyboardKey::KEY_ENTER)
   }
 
-  pub fn selected(&self, rl: &RaylibHandle) -> Option {
-    if rl.is_key_down(KeyboardKey::KEY_ENTER) {
-      self.selected_option
-    } else {
-      Option::Exit
-    }
+  pub fn selected(&self) -> Option {
+    self.selected_option
   }
 }

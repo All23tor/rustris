@@ -51,7 +51,7 @@ impl Raytris {
 
   fn handle_where_to_go(&mut self) {
     match &self.app {
-      App::MainMenu(main_menu) => match main_menu.selected(&self.rl) {
+      App::MainMenu(main_menu) => match main_menu.selected() {
         main_menu::Option::Exit => self.should_stop_running = true,
         _ => {}
       },
@@ -66,10 +66,9 @@ impl Raytris {
         self.handle_where_to_go();
       }
 
-      self.rl.draw(&self.thread, |mut rld| {
-        rld.clear_background(Color::LIGHTGRAY);
-        self.app.draw(&mut rld);
-      })
+      let mut d = self.rl.begin_drawing(&self.thread);
+      d.clear_background(Color::LIGHTGRAY);
+      self.app.draw(&mut d);
     }
   }
 }
