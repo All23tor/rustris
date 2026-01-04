@@ -43,7 +43,7 @@ impl Option {
       Self::SinglePlayer => Self::Exit,
       Self::TwoPlayer => Self::SinglePlayer,
       Self::Settings => Self::TwoPlayer,
-      Self::Exit => Self::SinglePlayer,
+      Self::Exit => Self::Settings,
     }
   }
 }
