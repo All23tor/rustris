@@ -1,4 +1,9 @@
-use raylib::{RaylibHandle, color::Color, math::Vector2, prelude::RaylibDrawHandle};
+use raylib::{
+  RaylibHandle,
+  color::Color,
+  math::Vector2,
+  prelude::{RaylibDraw, RaylibDrawHandle},
+};
 
 use crate::raytris::{gameplay::playfield::Playfield, settings::handling::HandlingSettings};
 
@@ -82,11 +87,56 @@ impl Game {
     }
   }
 
-  pub fn update(&mut self, _: &RaylibHandle) -> bool {
-    false
+  pub fn update(&mut self, rl: &RaylibHandle) -> bool {
+    if (self.controller.restart)(rl) {
+      self.playfield.restart();
+    }
+    if (self.controller.pause)(rl) {
+      self.pause = !self.pause;
+    }
+    if self.pause {
+      false
+    } else {
+      self.playfield.update(&self.controller, &self.settings, rl)
+    }
   }
 
-  pub fn draw(&self, _: &RaylibDrawHandle) {}
+  pub fn draw(&self, rld: &mut RaylibDrawHandle) {
+    self.playfield.draw(&self.drawing_details, rld);
+
+    if !self.playfield.lost() && !self.pause {
+      return;
+    }
+
+    let width = rld.get_screen_width();
+    let height = rld.get_render_height();
+    rld.draw_rectangle(0, 0, width, height, DrawingDetails::DARKEN_COLOR);
+
+    if self.playfield.lost() {
+      rld.draw_text(
+        "YOU LOST",
+        (width - rld.measure_text("YOU LOST", self.drawing_details.font_size_big)) / 2,
+        height / 2,
+        self.drawing_details.font_size_big,
+        DrawingDetails::YOU_LOST_COLOR,
+      );
+    } else if self.pause {
+      rld.draw_text(
+        "GAME PAUSED",
+        (width - rld.measure_text("GAME PAUSED", self.drawing_details.font_size_big)) / 2,
+        height / 2,
+        self.drawing_details.font_size_big,
+        DrawingDetails::GAME_PAUSED_COLOR,
+      );
+    }
+    rld.draw_text(
+      "Press Esc to quit",
+      (width - rld.measure_text("Press Enter to quit", self.drawing_details.font_size)) / 2,
+      height / 2 + self.drawing_details.font_size_big,
+      self.drawing_details.font_size,
+      DrawingDetails::QUIT_COLOR,
+    );
+  }
 }
 
 fn screen_vector(rl: &RaylibHandle) -> Vector2 {

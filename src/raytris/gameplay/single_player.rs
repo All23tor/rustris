@@ -61,7 +61,7 @@ impl SinglePlayer {
     }
   }
 
-  pub fn draw(&self, rld: &RaylibDrawHandle) {
+  pub fn draw(&self, rld: &mut RaylibDrawHandle) {
     self.game.draw(rld);
   }
 

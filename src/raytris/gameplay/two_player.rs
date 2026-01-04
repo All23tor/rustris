@@ -75,9 +75,9 @@ impl TwoPlayer {
     self.game2.pause = self.game1.pause;
   }
 
-  pub fn draw(&self, rdl: &RaylibDrawHandle) {
-    self.game1.draw(rdl);
-    self.game2.draw(rdl);
+  pub fn draw(&self, rld: &mut RaylibDrawHandle) {
+    self.game1.draw(rld);
+    self.game2.draw(rld);
   }
 
   pub fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
