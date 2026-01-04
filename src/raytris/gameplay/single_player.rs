@@ -2,7 +2,9 @@ use raylib::{RaylibHandle, ffi::KeyboardKey, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
   gameplay::{
-    Controller, DrawingDetails, Game, PLAYFIELD_VECTOR, playfield::Playfield, screen_vector,
+    Controller, DrawingDetails, Game, PLAYFIELD_VECTOR,
+    playfield::{self, Playfield},
+    screen_vector,
   },
   settings::handling::HandlingSettings,
 };
@@ -35,7 +37,7 @@ impl SinglePlayer {
 
   fn drawing_details(rl: &RaylibHandle) -> DrawingDetails {
     let block_length = DrawingDetails::HEIGHT_SCALE_FACTOR * rl.get_screen_height() as f32
-      / Playfield::VISIBLE_HEIGHT as f32;
+      / playfield::VISIBLE_HEIGHT as f32;
     let position = (screen_vector(rl) - PLAYFIELD_VECTOR * block_length) / 2.0;
     DrawingDetails::new(block_length, position)
   }

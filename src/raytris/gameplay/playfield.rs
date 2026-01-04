@@ -21,9 +21,13 @@ use crate::raytris::{
   settings::handling::HandlingSettings,
 };
 
+pub const WIDTH: i32 = 10;
+pub const HEIGHT: i32 = 40;
+pub const VISIBLE_HEIGHT: i32 = 20;
+
 #[derive(Clone)]
 pub struct Playfield {
-  grid: [[Tetromino; Self::WIDTH as usize]; Self::HEIGHT as usize],
+  grid: [[Tetromino; WIDTH as usize]; HEIGHT as usize],
   next_queue: NextQueue,
   falling_piece: FallingPiece,
   holding_piece: Tetromino,
@@ -43,7 +47,7 @@ pub struct Playfield {
 fn get_block(i: i32, j: i32, draw_d: &DrawingDetails) -> Rectangle {
   Rectangle {
     x: draw_d.position.x + i as f32 * draw_d.block_length,
-    y: draw_d.position.y + (j - Playfield::VISIBLE_HEIGHT) as f32 * draw_d.block_length,
+    y: draw_d.position.y + (j - VISIBLE_HEIGHT) as f32 * draw_d.block_length,
     width: draw_d.block_length,
     height: draw_d.block_length,
   }
@@ -77,10 +81,6 @@ fn draw_block_pretty(
 }
 
 impl Playfield {
-  pub const WIDTH: i32 = 10;
-  pub const HEIGHT: i32 = 40;
-  pub const VISIBLE_HEIGHT: i32 = 20;
-
   pub fn new() -> Self {
     Self {
       grid: [[Tetromino::Empty; _]; _],
@@ -122,8 +122,8 @@ impl Playfield {
     let tetrion = Rectangle {
       x: d.position.x,
       y: d.position.y,
-      width: d.block_length * Self::WIDTH as f32,
-      height: d.block_length * Self::VISIBLE_HEIGHT as f32,
+      width: d.block_length * WIDTH as f32,
+      height: d.block_length * VISIBLE_HEIGHT as f32,
     };
     rld.draw_rectangle_rec(tetrion, DrawingDetails::TETRION_BACKGROUND_COLOR);
     rld.draw_rectangle_lines_ex(
@@ -132,27 +132,27 @@ impl Playfield {
       DrawingDetails::GRINDLINE_COLOR,
     );
 
-    for mut rec in (1..Self::WIDTH).map(|i| get_block(i, Self::VISIBLE_HEIGHT, d)) {
+    for mut rec in (1..WIDTH).map(|i| get_block(i, VISIBLE_HEIGHT, d)) {
       rec.x = rec.x.floor();
       rec.y = rec.y.floor();
       rld.draw_line_ex(
         Vector2 { x: rec.x, y: rec.y },
         Vector2 {
           x: rec.x,
-          y: (rec.y + Self::VISIBLE_HEIGHT as f32 * d.block_length).floor(),
+          y: (rec.y + VISIBLE_HEIGHT as f32 * d.block_length).floor(),
         },
         d.block_length / 10.0,
         DrawingDetails::GRINDLINE_COLOR,
       );
     }
 
-    for mut rec in (1..Self::VISIBLE_HEIGHT).map(|j| get_block(0, j + Self::VISIBLE_HEIGHT, d)) {
+    for mut rec in (1..VISIBLE_HEIGHT).map(|j| get_block(0, j + VISIBLE_HEIGHT, d)) {
       rec.x = rec.x.floor();
       rec.y = rec.y.floor();
       rld.draw_line_ex(
         Vector2 { x: rec.x, y: rec.y },
         Vector2 {
-          x: (rec.x + d.block_length * Self::WIDTH as f32).floor(),
+          x: (rec.x + d.block_length * WIDTH as f32).floor(),
           y: rec.y,
         },
         d.block_length / 10.0,

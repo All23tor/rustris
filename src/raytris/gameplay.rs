@@ -147,6 +147,6 @@ fn screen_vector(rl: &RaylibHandle) -> Vector2 {
 }
 
 const PLAYFIELD_VECTOR: Vector2 = Vector2 {
-  x: Playfield::WIDTH as f32,
-  y: Playfield::VISIBLE_HEIGHT as f32,
+  x: playfield::WIDTH as f32,
+  y: playfield::VISIBLE_HEIGHT as f32,
 };
