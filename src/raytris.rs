@@ -1,5 +1,7 @@
+mod gameplay;
 mod main_menu;
 mod settings;
+
 use main_menu::MainMenu;
 use raylib::{
   RaylibHandle, RaylibThread,
@@ -8,35 +10,46 @@ use raylib::{
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
-use crate::raytris::settings::{
-  menu::{Menu as SettingsMenu, config},
-  resolution::Resolution,
+use crate::raytris::{
+  gameplay::{single_player::SinglePlayer, two_player::TwoPlayer},
+  settings::{
+    menu::{Menu as SettingsMenu, config},
+    resolution::Resolution,
+  },
 };
 
 enum App {
   MainMenu(MainMenu),
   SettingsMenu(SettingsMenu),
+  SinglePlayer(SinglePlayer),
+  TwoPlayer(TwoPlayer),
 }
 
 impl App {
   fn draw(&self, rld: &mut RaylibDrawHandle) {
     match self {
-      Self::MainMenu(main_menu) => main_menu.draw(rld),
-      Self::SettingsMenu(settings_menu) => settings_menu.draw(rld),
+      App::MainMenu(main_menu) => main_menu.draw(rld),
+      App::SettingsMenu(settings_menu) => settings_menu.draw(rld),
+      App::SinglePlayer(single_player) => single_player.draw(rld),
+      App::TwoPlayer(two_player) => two_player.draw(rld),
     }
   }
 
   fn update(&mut self, rl: &mut RaylibHandle) {
     match self {
-      Self::MainMenu(main_menu) => main_menu.update(rl),
-      Self::SettingsMenu(settings_menu) => settings_menu.update(rl),
+      App::MainMenu(main_menu) => main_menu.update(rl),
+      App::SettingsMenu(settings_menu) => settings_menu.update(rl),
+      App::SinglePlayer(single_player) => single_player.update(rl),
+      App::TwoPlayer(two_player) => two_player.update(rl),
     }
   }
 
   fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
     match self {
-      Self::MainMenu(main_menu) => main_menu.should_stop_running(rl),
-      Self::SettingsMenu(settings_menu) => settings_menu.should_stop_running(rl),
+      App::MainMenu(main_menu) => main_menu.should_stop_running(rl),
+      App::SettingsMenu(settings_menu) => settings_menu.should_stop_running(rl),
+      App::SinglePlayer(single_player) => single_player.should_stop_running(rl),
+      App::TwoPlayer(two_player) => two_player.should_stop_running(rl),
     }
   }
 }
@@ -67,12 +80,19 @@ impl Raytris {
   }
 
   fn handle_where_to_go(&mut self) {
+    use main_menu::Option;
     match &self.app {
-      App::MainMenu(main_menu) => match main_menu.selected() {
-        main_menu::Option::Exit => self.should_stop_running = true,
-        main_menu::Option::Settings => self.app = App::SettingsMenu(SettingsMenu::new()),
-        _ => (),
-      },
+      App::MainMenu(main_menu) => {
+        self.app = match main_menu.selected() {
+          Option::Exit => {
+            self.should_stop_running = true;
+            return;
+          }
+          Option::Settings => App::SettingsMenu(SettingsMenu::new()),
+          Option::SinglePlayer => App::SinglePlayer(SinglePlayer::new()),
+          Option::TwoPlayer => App::TwoPlayer(TwoPlayer::new()),
+        }
+      }
       _ => self.app = App::MainMenu(MainMenu::new()),
     }
   }
