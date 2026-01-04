@@ -82,7 +82,7 @@ impl Game {
       drawing_details,
       controller,
       settings,
-      playfield: Playfield,
+      playfield: Playfield::new(),
       pause: false,
     }
   }
