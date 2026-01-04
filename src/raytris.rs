@@ -89,8 +89,14 @@ impl Raytris {
             return;
           }
           Option::Settings => App::SettingsMenu(SettingsMenu::new()),
-          Option::SinglePlayer => App::SinglePlayer(SinglePlayer::new()),
-          Option::TwoPlayer => App::TwoPlayer(TwoPlayer::new()),
+          Option::SinglePlayer => {
+            App::SinglePlayer(SinglePlayer::new(config().handling_settings, &self.rl))
+          }
+          Option::TwoPlayer => App::TwoPlayer(TwoPlayer::new(
+            config().handling_settings,
+            config().handling_settings,
+            &self.rl,
+          )),
         }
       }
       _ => self.app = App::MainMenu(MainMenu::new()),
