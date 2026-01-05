@@ -3,6 +3,8 @@ mod line_clear_message;
 mod next_queue;
 mod tetromino;
 
+use std::ops::Range;
+
 use raylib::{
   RaylibHandle,
   color::Color,
@@ -14,8 +16,10 @@ use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
     playfield::{
-      falling_piece::FallingPiece, line_clear_message::LineClearMessage, next_queue::NextQueue,
-      tetromino::Tetromino,
+      falling_piece::FallingPiece,
+      line_clear_message::LineClearMessage,
+      next_queue::NextQueue,
+      tetromino::{Tetromino, TetrominoMap},
     },
   },
   settings::handling::HandlingSettings,
@@ -24,10 +28,14 @@ use crate::raytris::{
 pub const WIDTH: i32 = 10;
 pub const HEIGHT: i32 = 40;
 pub const VISIBLE_HEIGHT: i32 = 20;
+const INITIAL_X_POSITION: usize = (WIDTH as usize - 1) / 2;
+const INITIAL_Y_POSITION: usize = VISIBLE_HEIGHT as usize - 1;
+
+type Grid = [[Tetromino; WIDTH as usize]; HEIGHT as usize];
 
 #[derive(Clone)]
 pub struct Playfield {
-  grid: [[Tetromino; WIDTH as usize]; HEIGHT as usize],
+  grid: Grid,
   next_queue: NextQueue,
   falling_piece: FallingPiece,
   holding_piece: Tetromino,
@@ -44,48 +52,17 @@ pub struct Playfield {
   message: LineClearMessage,
 }
 
-fn get_block(i: i32, j: i32, draw_d: &DrawingDetails) -> Rectangle {
-  Rectangle {
-    x: draw_d.position.x + i as f32 * draw_d.block_length,
-    y: draw_d.position.y + (j - VISIBLE_HEIGHT) as f32 * draw_d.block_length,
-    width: draw_d.block_length,
-    height: draw_d.block_length,
-  }
-}
-
-fn draw_block_pretty(
-  i: i32,
-  j: i32,
-  draw_d: &DrawingDetails,
-  fill: Color,
-  rld: &mut RaylibDrawHandle,
-) {
-  if fill.a == 0 {
-    return;
-  }
-
-  let rec = get_block(i, j, draw_d);
-  rld.draw_rectangle_rec(rec, fill);
-  rld.draw_rectangle(
-    (rec.x + draw_d.block_length / 3.0) as i32,
-    (rec.y + draw_d.block_length / 3.0) as i32,
-    (rec.width / 3.0) as i32,
-    (rec.height / 3.0) as i32,
-    DrawingDetails::DEFAULT_PRETTY_OUTLINE,
-  );
-  rld.draw_rectangle_lines_ex(
-    rec,
-    draw_d.block_length / 8.0,
-    DrawingDetails::DEFAULT_PRETTY_OUTLINE,
-  );
-}
-
 impl Playfield {
   pub fn new() -> Self {
+    let holding_piece = FallingPiece::new(
+      Tetromino::Empty,
+      INITIAL_X_POSITION as i8,
+      INITIAL_Y_POSITION as i8,
+    );
     Self {
       grid: [[Tetromino::Empty; _]; _],
       next_queue: NextQueue,
-      falling_piece: FallingPiece,
+      falling_piece: holding_piece,
       holding_piece: Tetromino::Empty,
       can_swap: true,
       has_lost: false,
@@ -113,7 +90,8 @@ impl Playfield {
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     self.draw_tetrion(d, rld);
-    // self.draw_tetrion_pieces(d, rld);
+    self.draw_tetrion_pieces(d, rld);
+    // self.draw_next_queue(d, rld);
     // self.draw_hold_piece(d, rld);
     // self.draw_info(d, rld);
   }
@@ -170,7 +148,140 @@ impl Playfield {
     }
   }
 
+  fn draw_tetrion_pieces(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+    let mut ghost_piece = self.falling_piece.clone();
+    ghost_piece.fall();
+    while valid_position(&self.grid, &ghost_piece) {
+      ghost_piece.fall();
+    }
+    ghost_piece.unfall();
+
+    draw_piece(
+      &ghost_piece.map,
+      Color::GRAY,
+      ghost_piece.x as i32,
+      ghost_piece.y as i32,
+      d,
+      rld,
+    );
+
+    draw_piece(
+      &self.falling_piece.map,
+      self.falling_piece.tetromino.color(),
+      self.falling_piece.x as i32,
+      self.falling_piece.y as i32,
+      d,
+      rld,
+    );
+
+    const X_DANGER_RANGE: Range<usize> = WIDTH as usize / 2 - 2..WIDTH as usize / 2 + 2;
+    const Y_DANGER_RANGE: Range<usize> = INITIAL_Y_POSITION..INITIAL_Y_POSITION + 5;
+
+    let is_in_danger = X_DANGER_RANGE.clone().all(|x| {
+      Y_DANGER_RANGE
+        .clone()
+        .all(|y| self.grid[y][x] != Tetromino::Empty)
+    });
+    if is_in_danger {
+      // draw_piece_danger(next_queue[0], d, rld);
+    }
+  }
+
   pub fn lost(&self) -> bool {
     self.has_lost
   }
+}
+
+fn valid_position(grid: &Grid, piece: &FallingPiece) -> bool {
+  piece.map.0.iter().all(|(cx, cy)| {
+    let x = (cx + piece.x) as i32;
+    let y = (cy + piece.y) as i32;
+    valid_mino(x, y) && grid[y as usize][x as usize] == Tetromino::Empty
+  })
+}
+
+fn valid_mino(x: i32, y: i32) -> bool {
+  (0..WIDTH).contains(&x) && (0..HEIGHT).contains(&y)
+}
+
+fn get_block(i: i32, j: i32, d: &DrawingDetails) -> Rectangle {
+  Rectangle {
+    x: d.position.x + i as f32 * d.block_length,
+    y: d.position.y + (j - VISIBLE_HEIGHT) as f32 * d.block_length,
+    width: d.block_length,
+    height: d.block_length,
+  }
+}
+
+fn draw_block_pretty(
+  i: i32,
+  j: i32,
+  draw_d: &DrawingDetails,
+  fill: Color,
+  rld: &mut RaylibDrawHandle,
+) {
+  if fill.a == 0 {
+    return;
+  }
+
+  let rec = get_block(i, j, draw_d);
+  rld.draw_rectangle_rec(rec, fill);
+  rld.draw_rectangle(
+    (rec.x + draw_d.block_length / 3.0) as i32,
+    (rec.y + draw_d.block_length / 3.0) as i32,
+    (rec.width / 3.0) as i32,
+    (rec.height / 3.0) as i32,
+    DrawingDetails::DEFAULT_PRETTY_OUTLINE,
+  );
+  rld.draw_rectangle_lines_ex(
+    rec,
+    draw_d.block_length / 8.0,
+    DrawingDetails::DEFAULT_PRETTY_OUTLINE,
+  );
+}
+
+fn draw_piece(
+  map: &TetrominoMap,
+  color: Color,
+  x: i32,
+  y: i32,
+  d: &DrawingDetails,
+  rld: &mut RaylibDrawHandle,
+) {
+  for (cx, cy) in map.0 {
+    draw_block_pretty(cx as i32 + x, cy as i32 + y, d, color, rld);
+  }
+}
+
+fn draw_piece_danger(tetromino: Tetromino, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+  for (cx, cy) in tetromino.initial_map().0 {
+    let x = cx as i32 + INITIAL_X_POSITION as i32;
+    let y = cy as i32 + INITIAL_Y_POSITION as i32;
+    draw_block_danger(x, y, d, rld);
+  }
+}
+
+fn draw_block_danger(i: i32, j: i32, draw_d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+  let rec = get_block(i, j, draw_d);
+  let &Rectangle {
+    x,
+    y,
+    width,
+    height,
+  } = &rec;
+
+  const SOFT_RED: Color = Color::new(255, 0, 0, 150);
+  rld.draw_rectangle_lines_ex(rec, draw_d.block_length / 8.0, SOFT_RED);
+  rld.draw_line_ex(
+    Vector2::new(x + width * 0.25, y + height * 0.25),
+    Vector2::new(x + width * 0.75, y + height * 0.75),
+    draw_d.block_length * 0.1,
+    Color::RED,
+  );
+  rld.draw_line_ex(
+    Vector2::new(x + width * 0.75, y + height * 0.25),
+    Vector2::new(x + width * 0.25, y + height * 0.75),
+    draw_d.block_length * 0.1,
+    SOFT_RED,
+  );
 }

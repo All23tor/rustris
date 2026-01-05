@@ -1,6 +1,6 @@
 use raylib::color::Color;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Tetromino {
   I,
   O,
@@ -12,7 +12,8 @@ pub enum Tetromino {
   Empty,
 }
 
-struct TetrominoMap([(i8, i8); 4]);
+#[derive(Clone)]
+pub struct TetrominoMap(pub [(i8, i8); 4]);
 
 impl Tetromino {
   pub fn color(self) -> Color {
