@@ -17,7 +17,7 @@ use crate::raytris::{
     Controller, DrawingDetails,
     playfield::{
       falling_piece::FallingPiece,
-      line_clear_message::LineClearMessage,
+      line_clear_message::{LineClearMessage, SpinType},
       next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
     },
@@ -49,7 +49,7 @@ pub struct Playfield {
   combo: u32,
   score: u64,
   b2b: u32,
-  message: LineClearMessage,
+  message: Option<LineClearMessage>,
 }
 
 impl Playfield {
@@ -74,7 +74,7 @@ impl Playfield {
       combo: 0,
       score: 0,
       b2b: 0,
-      message: LineClearMessage,
+      message: None,
     }
   }
 
@@ -92,8 +92,8 @@ impl Playfield {
     self.draw_tetrion(d, rld);
     self.draw_tetrion_pieces(d, rld);
     self.draw_next_queue(d, rld);
-    // self.draw_hold_piece(d, rld);
-    // self.draw_info(d, rld);
+    self.draw_hold_piece(d, rld);
+    self.draw_info(d, rld);
   }
 
   fn draw_tetrion(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
@@ -219,6 +219,125 @@ impl Playfield {
     }
   }
 
+  fn draw_hold_piece(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+    let text_rect = get_block(-7, VISIBLE_HEIGHT, d);
+    rld.draw_text(
+      "HOLD",
+      text_rect.x as i32,
+      text_rect.y as i32,
+      d.font_size,
+      DrawingDetails::INFO_TEXT_COLOR,
+    );
+    let mut background = get_block(-7, VISIBLE_HEIGHT + 2, d);
+    background.width = d.block_length * 6.0;
+    background.height = d.block_length * 4.0;
+    rld.draw_rectangle_rec(background, DrawingDetails::PIECES_BACKGROUND_COLOR);
+    rld.draw_rectangle_lines_ex(
+      background,
+      d.block_length / 4.0,
+      DrawingDetails::PIECE_BOX_COLOR,
+    );
+
+    let color = if self.can_swap {
+      self.holding_piece.color()
+    } else {
+      DrawingDetails::UNAVAILABLE_HOLD_PIECE_COLOR
+    };
+
+    draw_piece(
+      &self.holding_piece.initial_map(),
+      color,
+      -5,
+      4 + VISIBLE_HEIGHT,
+      d,
+      rld,
+    );
+  }
+
+  fn draw_info(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+    if let Some(message) = &self.message {
+      let text_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 4, d);
+      let (msg, mut color) = message.message.info();
+      let alpha = (255.0 * message.timer as f32) / LineClearMessage::DURATION as f32;
+      color.a = alpha as u8;
+      rld.draw_text(
+        msg,
+        text_rect.x as i32,
+        text_rect.y as i32,
+        d.font_size,
+        color,
+      );
+
+      if let Some(spin_type) = message.spin_type {
+        let mut spin_color = Tetromino::T.color();
+        spin_color.a = alpha as u8;
+        let spin_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 6, d);
+        rld.draw_text(
+          "TSPIN",
+          spin_rect.x as i32,
+          spin_rect.y as i32,
+          d.font_size,
+          spin_color,
+        );
+        if spin_type == SpinType::Mini {
+          let mini_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 7, d);
+          rld.draw_text(
+            "MINI",
+            mini_rect.x as i32,
+            mini_rect.y as i32,
+            d.font_size_small,
+            spin_color,
+          );
+        }
+      }
+    }
+
+    if self.combo >= 2 {
+      let combo_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 10, d);
+      rld.draw_text(
+        "COMBO ",
+        combo_rect.x as i32,
+        combo_rect.y as i32,
+        d.font_size,
+        Color::BLUE,
+      );
+      rld.draw_text(
+        &format!("{}", self.combo),
+        combo_rect.x as i32 + rld.measure_text("COMBO ", d.font_size),
+        combo_rect.y as i32,
+        d.font_size,
+        Color::BLUE,
+      );
+    }
+
+    if self.b2b >= 2 {
+      let b2b_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 12, d);
+      rld.draw_text(
+        "B2B ",
+        b2b_rect.x as i32,
+        b2b_rect.y as i32,
+        d.font_size,
+        Color::BLUE,
+      );
+      rld.draw_text(
+        &format!("{}", self.b2b - 1),
+        b2b_rect.x as i32 + rld.measure_text("B2B ", d.font_size),
+        b2b_rect.y as i32,
+        d.font_size,
+        Color::BLUE,
+      );
+    }
+
+    let score_rect = get_block(WIDTH + 1, HEIGHT - 2, d);
+    rld.draw_text(
+      &format!("{:09}", self.score),
+      score_rect.x as i32,
+      (score_rect.y + d.block_length * 0.5) as i32,
+      d.font_size,
+      DrawingDetails::INFO_TEXT_COLOR,
+    );
+  }
+
   pub fn lost(&self) -> bool {
     self.has_lost
   }
@@ -245,29 +364,23 @@ fn get_block(i: i32, j: i32, d: &DrawingDetails) -> Rectangle {
   }
 }
 
-fn draw_block_pretty(
-  i: i32,
-  j: i32,
-  draw_d: &DrawingDetails,
-  fill: Color,
-  rld: &mut RaylibDrawHandle,
-) {
+fn draw_block_pretty(i: i32, j: i32, d: &DrawingDetails, fill: Color, rld: &mut RaylibDrawHandle) {
   if fill.a == 0 {
     return;
   }
 
-  let rec = get_block(i, j, draw_d);
+  let rec = get_block(i, j, d);
   rld.draw_rectangle_rec(rec, fill);
   rld.draw_rectangle(
-    (rec.x + draw_d.block_length / 3.0) as i32,
-    (rec.y + draw_d.block_length / 3.0) as i32,
+    (rec.x + d.block_length / 3.0) as i32,
+    (rec.y + d.block_length / 3.0) as i32,
     (rec.width / 3.0) as i32,
     (rec.height / 3.0) as i32,
     DrawingDetails::DEFAULT_PRETTY_OUTLINE,
   );
   rld.draw_rectangle_lines_ex(
     rec,
-    draw_d.block_length / 8.0,
+    d.block_length / 8.0,
     DrawingDetails::DEFAULT_PRETTY_OUTLINE,
   );
 }
@@ -293,8 +406,8 @@ fn draw_piece_danger(tetromino: Tetromino, d: &DrawingDetails, rld: &mut RaylibD
   }
 }
 
-fn draw_block_danger(i: i32, j: i32, draw_d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-  let rec = get_block(i, j, draw_d);
+fn draw_block_danger(i: i32, j: i32, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+  let rec = get_block(i, j, d);
   let &Rectangle {
     x,
     y,
@@ -303,17 +416,17 @@ fn draw_block_danger(i: i32, j: i32, draw_d: &DrawingDetails, rld: &mut RaylibDr
   } = &rec;
 
   const SOFT_RED: Color = Color::new(255, 0, 0, 150);
-  rld.draw_rectangle_lines_ex(rec, draw_d.block_length / 8.0, SOFT_RED);
+  rld.draw_rectangle_lines_ex(rec, d.block_length / 8.0, SOFT_RED);
   rld.draw_line_ex(
     Vector2::new(x + width * 0.25, y + height * 0.25),
     Vector2::new(x + width * 0.75, y + height * 0.75),
-    draw_d.block_length * 0.1,
+    d.block_length * 0.1,
     Color::RED,
   );
   rld.draw_line_ex(
     Vector2::new(x + width * 0.75, y + height * 0.25),
     Vector2::new(x + width * 0.25, y + height * 0.75),
-    draw_d.block_length * 0.1,
+    d.block_length * 0.1,
     SOFT_RED,
   );
 }
