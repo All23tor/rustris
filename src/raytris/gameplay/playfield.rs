@@ -18,7 +18,7 @@ use crate::raytris::{
     playfield::{
       falling_piece::FallingPiece,
       line_clear_message::LineClearMessage,
-      next_queue::NextQueue,
+      next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
     },
   },
@@ -61,7 +61,7 @@ impl Playfield {
     );
     Self {
       grid: [[Tetromino::Empty; _]; _],
-      next_queue: NextQueue,
+      next_queue: NextQueue::new(),
       falling_piece: holding_piece,
       holding_piece: Tetromino::Empty,
       can_swap: true,
@@ -91,7 +91,7 @@ impl Playfield {
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     self.draw_tetrion(d, rld);
     self.draw_tetrion_pieces(d, rld);
-    // self.draw_next_queue(d, rld);
+    self.draw_next_queue(d, rld);
     // self.draw_hold_piece(d, rld);
     // self.draw_info(d, rld);
   }
@@ -183,7 +183,39 @@ impl Playfield {
         .all(|y| self.grid[y][x] != Tetromino::Empty)
     });
     if is_in_danger {
-      // draw_piece_danger(next_queue[0], d, rld);
+      draw_piece_danger(self.next_queue[0], d, rld);
+    }
+  }
+
+  fn draw_next_queue(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+    let mut background = get_block(WIDTH + 1, VISIBLE_HEIGHT + 2, d);
+    background.width = d.block_length * 6.0;
+    background.height = d.block_length * (3 * NEXT_SIZE + 1) as f32;
+    rld.draw_rectangle_rec(background, DrawingDetails::PIECES_BACKGROUND_COLOR);
+    rld.draw_rectangle_lines_ex(
+      background,
+      d.block_length / 4.0,
+      DrawingDetails::PIECE_BOX_COLOR,
+    );
+
+    let text_rect = get_block(WIDTH + 1, VISIBLE_HEIGHT, d);
+    rld.draw_text(
+      "NEXT",
+      text_rect.x as i32,
+      text_rect.y as i32,
+      d.font_size,
+      DrawingDetails::INFO_TEXT_COLOR,
+    );
+
+    for id in 0..NEXT_SIZE {
+      draw_piece(
+        &self.next_queue[id].initial_map(),
+        self.next_queue[id].color(),
+        WIDTH + 3,
+        3 * (id as i32 + 1) + VISIBLE_HEIGHT + 1,
+        d,
+        rld,
+      );
     }
   }
 
