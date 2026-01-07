@@ -39,7 +39,7 @@ impl NextQueue {
     self.size -= 1;
     let next = self.queue[self.size];
     if self.size <= NEXT_SIZE {
-      self.queue.copy_within(0..SIZE_OF_BAG, SIZE_OF_BAG);
+      self.queue.copy_within(0..self.size, SIZE_OF_BAG);
       self.queue[0..SIZE_OF_BAG].copy_from_slice(&Self::NEW_BAG);
       self.queue[0..SIZE_OF_BAG].shuffle(&mut rng());
       self.size += SIZE_OF_BAG;
