@@ -29,7 +29,7 @@ pub enum SpinType {
 
 #[derive(Clone)]
 pub struct LineClearMessage {
-  pub message: MessageType,
+  pub message: Option<MessageType>,
   pub timer: u8,
   pub spin_type: Option<SpinType>,
 }
@@ -37,11 +37,19 @@ pub struct LineClearMessage {
 impl LineClearMessage {
   pub const DURATION: u8 = 180;
 
-  pub fn with_message(message: MessageType) -> Self {
+  pub fn empty() -> Self {
+    Self {
+      message: None,
+      timer: 0,
+      spin_type: None,
+    }
+  }
+
+  pub fn new(message: Option<MessageType>, spin_type: Option<SpinType>) -> Self {
     Self {
       message,
       timer: Self::DURATION,
-      spin_type: None,
+      spin_type,
     }
   }
 }

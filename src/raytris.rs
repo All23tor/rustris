@@ -4,14 +4,12 @@ mod settings;
 
 use main_menu::MainMenu;
 use raylib::{
-  RaylibHandle, RaylibThread,
-  color::Color,
-  init,
+  RaylibHandle, RaylibThread, init,
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
 use crate::raytris::{
-  gameplay::{single_player::SinglePlayer, two_player::TwoPlayer},
+  gameplay::{BACKGROUND_COLOR, single_player::SinglePlayer, two_player::TwoPlayer},
   settings::{
     menu::{Menu as SettingsMenu, config},
     resolution::Resolution,
@@ -112,7 +110,7 @@ impl Raytris {
       }
 
       let mut d = self.rl.begin_drawing(&self.thread);
-      d.clear_background(Color::LIGHTGRAY);
+      d.clear_background(BACKGROUND_COLOR);
       self.app.draw(&mut d);
     }
   }

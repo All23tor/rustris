@@ -1,7 +1,7 @@
 use crate::raytris::gameplay::playfield::tetromino::{Tetromino, TetrominoMap};
 
 #[derive(Clone, Copy)]
-enum Orientation {
+pub enum Orientation {
   Up,
   Right,
   Down,

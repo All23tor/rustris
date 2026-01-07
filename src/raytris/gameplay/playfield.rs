@@ -16,8 +16,8 @@ use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
     playfield::{
-      falling_piece::{FallingPiece, RotationType, Shift},
-      line_clear_message::{LineClearMessage, SpinType},
+      falling_piece::{FallingPiece, Orientation, RotationType, Shift},
+      line_clear_message::{LineClearMessage, MessageType, SpinType},
       next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
     },
@@ -49,7 +49,7 @@ pub struct Playfield {
   combo: u32,
   score: u64,
   b2b: u32,
-  message: Option<LineClearMessage>,
+  message: LineClearMessage,
 }
 
 impl Playfield {
@@ -71,7 +71,7 @@ impl Playfield {
       combo: 0,
       score: 0,
       b2b: 0,
-      message: None,
+      message: LineClearMessage::empty(),
     }
   }
 
@@ -90,17 +90,13 @@ impl Playfield {
 
     self.frames_since_drop += 1;
     self.lock_delay_frames += 1;
-    if let Some(message) = &mut self.message {
-      message.timer -= 1;
-      if message.timer == 0 {
-        self.message = None;
-      }
+    if self.message.timer > 0 {
+      self.message.timer -= 1;
     }
 
     self.handle_shifts(c, h, rl);
     self.handle_rotations(c, rl);
-    // self.handle_drops(c, h, rl)
-    false
+    self.handle_drops(c, h, rl)
   }
 
   fn handle_swap(&mut self, c: &Controller, rl: &RaylibHandle) {
@@ -152,12 +148,12 @@ impl Playfield {
 
     if (c.left_das)(rl) {
       self.frames_pressed = self.frames_pressed.max(0) + 1;
-      if self.frames_pressed > h.das {
+      if self.frames_pressed > h.das as i32 {
         try_das(Shift::Left);
       }
     } else if (c.right_das)(rl) {
       self.frames_pressed = self.frames_pressed.min(0) - 1;
-      if self.frames_pressed < -h.das {
+      if -self.frames_pressed < h.das as i32 {
         try_das(Shift::Right);
       }
     } else {
@@ -195,6 +191,176 @@ impl Playfield {
     self.lock_delay_frames = 0;
     self.lock_delay_resets += 1;
     self.last_move_rotation = true;
+  }
+
+  fn handle_drops(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) -> bool {
+    if (c.hard_drop)(rl) {
+      let mut fallen = self.falling_piece.clone();
+      fallen.fall();
+      while valid_position(&self.grid, &fallen) {
+        self.falling_piece = fallen.clone();
+        fallen.fall();
+        self.last_move_rotation = false;
+      }
+      self.solidify_piece();
+      return true;
+    }
+
+    let soft_fall = (c.soft_drop)(rl) && self.frames_since_drop >= h.soft_drop;
+    let gravity_fall = self.frames_since_drop >= h.gravity;
+    let is_fall_step = soft_fall || gravity_fall;
+    if is_fall_step {
+      self.frames_since_drop = 0
+    };
+
+    let mut fallen_piece = self.falling_piece.clone();
+    fallen_piece.fall();
+    let can_fall = valid_position(&self.grid, &fallen_piece);
+    let can_wait = self.lock_delay_frames < h.lock_delay_frames;
+    let can_reset = self.lock_delay_resets < h.lock_delay_resets;
+    if !can_fall && (!can_wait || !can_reset) {
+      self.solidify_piece();
+      return true;
+    }
+
+    if can_fall && is_fall_step {
+      self.last_move_rotation = false;
+      self.falling_piece.fall();
+      self.lock_delay_frames = 0;
+      self.lock_delay_resets = 0;
+    }
+
+    false
+  }
+
+  fn is_spin(piece: &FallingPiece, grid: &Grid) -> Option<SpinType> {
+    if piece.tetromino != Tetromino::T {
+      return None;
+    }
+
+    let mut corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)];
+    corners.rotate_right(match piece.orientation {
+      Orientation::Up => 0,
+      Orientation::Right => 1,
+      Orientation::Down => 2,
+      Orientation::Left => 3,
+    });
+
+    let front_count = corners[0..2]
+      .iter()
+      .filter(|&&(cx, cy)| {
+        let x = piece.x as i32 + cx as i32;
+        let y = piece.y as i32 + cy as i32;
+        !valid_mino(x as i32, y as i32) || grid[y as usize][x as usize] != Tetromino::Empty
+      })
+      .count();
+    let back_count = corners[2..4]
+      .iter()
+      .filter(|&&(cx, cy)| {
+        let x = piece.x as i32 + cx as i32;
+        let y = piece.y as i32 + cy as i32;
+        !valid_mino(x as i32, y as i32) || grid[y as usize][x as usize] != Tetromino::Empty
+      })
+      .count();
+
+    if front_count + back_count < 3 {
+      None
+    } else if front_count == 2 {
+      Some(SpinType::Proper)
+    } else {
+      Some(SpinType::Mini)
+    }
+  }
+
+  fn solidify_piece(&mut self) {
+    let mut topped_out = true;
+
+    for (cx, cy) in self.falling_piece.map.0 {
+      let x = cx as i32 + self.falling_piece.x as i32;
+      let y = cy as i32 + self.falling_piece.y as i32;
+      self.grid[y as usize][x as usize] = self.falling_piece.tetromino;
+
+      if y >= VISIBLE_HEIGHT {
+        topped_out = false;
+      }
+    }
+
+    let spin_type = if self.last_move_rotation {
+      Self::is_spin(&self.falling_piece, &self.grid)
+    } else {
+      None
+    };
+
+    let mut cleared_lines = 0;
+    for row_idx in 0..HEIGHT as usize {
+      if self.grid[row_idx].iter().all(|&m| m != Tetromino::Empty) {
+        self.grid.copy_within(0..row_idx, 1);
+        self.grid[0].fill(Tetromino::Empty);
+        cleared_lines += 1;
+      }
+    }
+
+    if cleared_lines == 0 {
+      self.combo = 0;
+    } else {
+      self.combo += 1;
+      if cleared_lines == 4 || spin_type.is_some() {
+        self.b2b += 1;
+      } else {
+        self.b2b = 0;
+      }
+    }
+
+    self.score += (self.combo * 50) as u64;
+    let b2b_factor = if self.b2b >= 2 { 3 } else { 2 };
+    const SCORE_TABLE: [[u64; 5]; 3] = [
+      /* cleared:  0   1    2    3    4  */
+      /*NoSpin */ [0, 100, 300, 500, 800],
+      /*Mini   */ [100, 200, 400, 0, 0],
+      /*Proper */ [400, 800, 1200, 1600, 0],
+    ];
+    let spin_index = match spin_type {
+      None => 0,
+      Some(SpinType::Mini) => 1,
+      Some(SpinType::Proper) => 2,
+    };
+    self.score += b2b_factor * SCORE_TABLE[spin_index][cleared_lines] / 2;
+
+    let message = match cleared_lines {
+      0 => None,
+      1 => Some(MessageType::Single),
+      2 => Some(MessageType::Double),
+      3 => Some(MessageType::Triple),
+      4 => Some(MessageType::Tetris),
+      _ => panic!(),
+    };
+
+    self.message = LineClearMessage::new(message, spin_type);
+
+    let is_all_clear = self
+      .grid
+      .iter()
+      .all(|row| row.iter().all(|&mino| mino == Tetromino::Empty));
+
+    if is_all_clear {
+      self.message.message = Some(MessageType::AllClear);
+      self.score += 3500 * b2b_factor / 2;
+    }
+
+    let next_tetromino = self.next_queue.next_tetromino();
+    self.falling_piece = spawn_tetromino(next_tetromino);
+    self.frames_since_drop = 0;
+    self.lock_delay_frames = 0;
+    self.lock_delay_resets = 0;
+    self.can_swap = true;
+
+    let can_spawn_piece = self.falling_piece.map.0.iter().all(|&(cx, cy)| {
+      let x = cx as i32 + self.falling_piece.x as i32;
+      let y = cy as i32 + self.falling_piece.y as i32;
+      self.grid[y as usize][x as usize] == Tetromino::Empty
+    });
+
+    self.has_lost = topped_out || !can_spawn_piece;
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
@@ -365,20 +531,22 @@ impl Playfield {
   }
 
   fn draw_info(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    if let Some(message) = &self.message {
-      let text_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 4, d);
-      let (msg, mut color) = message.message.info();
-      let alpha = (255.0 * message.timer as f32) / LineClearMessage::DURATION as f32;
-      color.a = alpha as u8;
-      rld.draw_text(
-        msg,
-        text_rect.x as i32,
-        text_rect.y as i32,
-        d.font_size,
-        color,
-      );
+    if self.message.timer > 0 {
+      let alpha = (255.0 * self.message.timer as f32) / LineClearMessage::DURATION as f32;
+      if let Some(message) = self.message.message {
+        let text_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 4, d);
+        let (msg, mut color) = message.info();
+        color.a = alpha as u8;
+        rld.draw_text(
+          msg,
+          text_rect.x as i32,
+          text_rect.y as i32,
+          d.font_size,
+          color,
+        );
+      }
 
-      if let Some(spin_type) = message.spin_type {
+      if let Some(spin_type) = self.message.spin_type {
         let mut spin_color = Tetromino::T.color();
         spin_color.a = alpha as u8;
         let spin_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 6, d);

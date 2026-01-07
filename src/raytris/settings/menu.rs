@@ -115,12 +115,12 @@ impl Menu {
         }
       }
       Option::DelayedAutoShift => {
-        hand_set.das += change;
-        hand_set.das = hand_set.das.clamp(0, 20);
+        hand_set.das += hand_set.das.saturating_add_signed(change);
+        hand_set.das = hand_set.das.min(20);
       }
       Option::SoftDropFrames => {
-        hand_set.soft_drop += change;
-        hand_set.soft_drop = hand_set.soft_drop.clamp(0, 20);
+        hand_set.soft_drop += hand_set.das.saturating_add_signed(change);
+        hand_set.soft_drop = hand_set.soft_drop.min(20);
       }
     }
   }

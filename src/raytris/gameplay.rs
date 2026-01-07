@@ -37,6 +37,8 @@ struct DrawingDetails {
   font_size_small: i32,
 }
 
+pub const BACKGROUND_COLOR: Color = DrawingDetails::BACKGROUND_COLOR;
+
 impl DrawingDetails {
   const HEIGHT_SCALE_FACTOR: f32 = 0.80;
   const DEFAULT_PRETTY_OUTLINE: Color = Color::new(0, 0, 0, 255 / 8);

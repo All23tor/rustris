@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandlingSettings {
-  pub gravity: i32,
-  pub soft_drop: i32,
-  pub lock_delay_frames: i32,
-  pub lock_delay_resets: i32,
-  pub das: i32,
+  pub gravity: u32,
+  pub soft_drop: u32,
+  pub lock_delay_frames: u32,
+  pub lock_delay_resets: u32,
+  pub das: u32,
 }
 
 impl Default for HandlingSettings {
