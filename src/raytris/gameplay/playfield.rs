@@ -3,7 +3,7 @@ mod line_clear_message;
 mod next_queue;
 mod tetromino;
 
-use std::ops::Range;
+use std::{iter::zip, ops::Range};
 
 use raylib::{
   RaylibHandle,
@@ -16,7 +16,7 @@ use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
     playfield::{
-      falling_piece::{FallingPiece, Shift},
+      falling_piece::{FallingPiece, RotationType, Shift},
       line_clear_message::{LineClearMessage, SpinType},
       next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
@@ -98,7 +98,7 @@ impl Playfield {
     }
 
     self.handle_shifts(c, h, rl);
-    // self.handle_rotations(c, rl);
+    self.handle_rotations(c, rl);
     // self.handle_drops(c, h, rl)
     false
   }
@@ -163,6 +163,38 @@ impl Playfield {
     } else {
       self.frames_pressed = 0;
     }
+  }
+
+  fn handle_rotations(&mut self, c: &Controller, rl: &RaylibHandle) {
+    let rotation_type = if (c.clockwise)(rl) {
+      RotationType::Clockwise
+    } else if (c.counter_clockwise)(rl) {
+      RotationType::CounterClockwise
+    } else if (c.one_eighty)(rl) {
+      RotationType::OneEighty
+    } else {
+      return;
+    };
+
+    let mut rotated_piece = self.falling_piece.clone();
+    rotated_piece.rotate(rotation_type);
+
+    let Some(offset) = zip(self.falling_piece.offsets(), rotated_piece.offsets())
+      .map(|(p1, p2)| (p1.0 - p2.0, p1.1 - p2.1))
+      .find(|&offset| {
+        let mut translated_piece = rotated_piece.clone();
+        translated_piece.translate(offset);
+        valid_position(&self.grid, &translated_piece)
+      })
+    else {
+      return;
+    };
+
+    rotated_piece.translate(offset);
+    self.falling_piece = rotated_piece;
+    self.lock_delay_frames = 0;
+    self.lock_delay_resets += 1;
+    self.last_move_rotation = true;
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {

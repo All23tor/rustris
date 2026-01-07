@@ -15,7 +15,7 @@ pub enum Shift {
 }
 
 #[derive(Clone, Copy)]
-enum RotationType {
+pub enum RotationType {
   Clockwise,
   CounterClockwise,
   OneEighty,
@@ -87,4 +87,40 @@ impl FallingPiece {
     self.x += translation.0;
     self.y += translation.1;
   }
+
+  pub fn offsets(&self) -> &'static OffsetTable {
+    static I_TABLE: [OffsetTable; 4] = [
+      [(0, 0), (-1, 0), (2, 0), (-1, 0), (2, 0)],
+      [(-1, 0), (0, 0), (0, 0), (0, -1), (0, 2)],
+      [(-1, -1), (1, -1), (-2, -1), (1, 0), (-2, 0)],
+      [(0, -1), (0, -1), (0, -1), (0, 1), (0, -2)],
+    ];
+    static O_TABLE: [OffsetTable; 4] = [
+      [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+      [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1)],
+      [(-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1)],
+      [(-1, 0), (-1, 0), (-1, 0), (-1, 0), (-1, 0)],
+    ];
+    static DEFAULT_TABLE: [OffsetTable; 4] = [
+      [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+      [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],
+      [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+      [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],
+    ];
+
+    let offset_table = match self.tetromino {
+      Tetromino::I => &I_TABLE,
+      Tetromino::O => &O_TABLE,
+      _ => &DEFAULT_TABLE,
+    };
+
+    match self.orientation {
+      Orientation::Up => &offset_table[0],
+      Orientation::Right => &offset_table[1],
+      Orientation::Down => &offset_table[2],
+      Orientation::Left => &offset_table[3],
+    }
+  }
 }
+
+pub type OffsetTable = [(i8, i8); 5];
