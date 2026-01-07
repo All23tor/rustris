@@ -16,7 +16,7 @@ use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
     playfield::{
-      falling_piece::FallingPiece,
+      falling_piece::{FallingPiece, Shift},
       line_clear_message::{LineClearMessage, SpinType},
       next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
@@ -45,7 +45,7 @@ pub struct Playfield {
   frames_since_drop: u32,
   lock_delay_frames: u32,
   lock_delay_resets: u32,
-  frames_pressed: u32,
+  frames_pressed: i32,
   combo: u32,
   score: u64,
   b2b: u32,
@@ -97,9 +97,9 @@ impl Playfield {
       }
     }
 
-    // handle_shifts(c, h);
-    // handle_rotations(c);
-    // handle_drops(c, h)
+    self.handle_shifts(c, h, rl);
+    // self.handle_rotations(c, rl);
+    // self.handle_drops(c, h, rl)
     false
   }
 
@@ -120,6 +120,49 @@ impl Playfield {
     self.lock_delay_frames = 0;
     self.lock_delay_resets = 0;
     self.last_move_rotation = false;
+  }
+
+  fn handle_shifts(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) {
+    let mut try_shifting = |shift| {
+      let mut shifted_piece = self.falling_piece.clone();
+      shifted_piece.shift(shift);
+      if valid_position(&self.grid, &shifted_piece) {
+        self.falling_piece = shifted_piece;
+        self.lock_delay_frames = 0;
+        self.lock_delay_resets += 1;
+        self.last_move_rotation = false;
+      }
+    };
+    if (c.left)(rl) {
+      try_shifting(Shift::Left);
+    } else if (c.right)(rl) {
+      try_shifting(Shift::Right);
+    }
+
+    let mut try_das = |shift| {
+      let mut shifted_piece = self.falling_piece.clone();
+      shifted_piece.shift(shift);
+      while valid_position(&self.grid, &shifted_piece) {
+        self.falling_piece = shifted_piece.clone();
+        self.lock_delay_frames = 0;
+        self.lock_delay_resets += 1;
+        shifted_piece.shift(shift);
+      }
+    };
+
+    if (c.left_das)(rl) {
+      self.frames_pressed = self.frames_pressed.max(0) + 1;
+      if self.frames_pressed > h.das {
+        try_das(Shift::Left);
+      }
+    } else if (c.right_das)(rl) {
+      self.frames_pressed = self.frames_pressed.min(0) - 1;
+      if self.frames_pressed < -h.das {
+        try_das(Shift::Right);
+      }
+    } else {
+      self.frames_pressed = 0;
+    }
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {

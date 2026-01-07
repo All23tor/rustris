@@ -9,7 +9,7 @@ enum Orientation {
 }
 
 #[derive(Clone, Copy)]
-enum Shift {
+pub enum Shift {
   Left,
   Right,
 }
