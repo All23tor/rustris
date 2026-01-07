@@ -35,7 +35,7 @@ impl NextQueue {
     }
   }
 
-  fn next_tetromino(&mut self) -> Tetromino {
+  pub fn next_tetromino(&mut self) -> Tetromino {
     self.size -= 1;
     let next = self.queue[self.size];
     if self.size <= NEXT_SIZE {

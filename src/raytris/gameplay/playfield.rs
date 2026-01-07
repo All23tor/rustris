@@ -28,8 +28,8 @@ use crate::raytris::{
 pub const WIDTH: i32 = 10;
 pub const HEIGHT: i32 = 40;
 pub const VISIBLE_HEIGHT: i32 = 20;
-const INITIAL_X_POSITION: usize = (WIDTH as usize - 1) / 2;
-const INITIAL_Y_POSITION: usize = VISIBLE_HEIGHT as usize - 1;
+const INITIAL_X_POSITION: i8 = (WIDTH as i8 - 1) / 2;
+const INITIAL_Y_POSITION: i8 = VISIBLE_HEIGHT as i8 - 1;
 
 type Grid = [[Tetromino; WIDTH as usize]; HEIGHT as usize];
 
@@ -54,15 +54,12 @@ pub struct Playfield {
 
 impl Playfield {
   pub fn new() -> Self {
-    let holding_piece = FallingPiece::new(
-      Tetromino::Empty,
-      INITIAL_X_POSITION as i8,
-      INITIAL_Y_POSITION as i8,
-    );
+    let mut next_queue = NextQueue::new();
+    let falling_piece = spawn_tetromino(next_queue.next_tetromino());
     Self {
       grid: [[Tetromino::Empty; _]; _],
-      next_queue: NextQueue::new(),
-      falling_piece: holding_piece,
+      next_queue,
+      falling_piece,
       holding_piece: Tetromino::Empty,
       can_swap: true,
       has_lost: false,
@@ -84,8 +81,45 @@ impl Playfield {
     self.score = last_score;
   }
 
-  pub fn update(&mut self, _: &Controller, _: &HandlingSettings, _: &RaylibHandle) -> bool {
+  pub fn update(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) -> bool {
+    if self.has_lost {
+      return false;
+    }
+
+    self.handle_swap(c, rl);
+
+    self.frames_since_drop += 1;
+    self.lock_delay_frames += 1;
+    if let Some(message) = &mut self.message {
+      message.timer -= 1;
+      if message.timer == 0 {
+        self.message = None;
+      }
+    }
+
+    // handle_shifts(c, h);
+    // handle_rotations(c);
+    // handle_drops(c, h)
     false
+  }
+
+  fn handle_swap(&mut self, c: &Controller, rl: &RaylibHandle) {
+    if !(c.swap)(rl) || !self.can_swap {
+      return;
+    }
+
+    let current_tetromino = self.falling_piece.tetromino;
+    self.falling_piece = if self.holding_piece != Tetromino::Empty {
+      spawn_tetromino(self.holding_piece)
+    } else {
+      spawn_tetromino(self.next_queue.next_tetromino())
+    };
+    self.holding_piece = current_tetromino;
+    self.can_swap = false;
+    self.frames_since_drop = 0;
+    self.lock_delay_frames = 0;
+    self.lock_delay_resets = 0;
+    self.last_move_rotation = false;
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
@@ -175,7 +209,8 @@ impl Playfield {
     );
 
     const X_DANGER_RANGE: Range<usize> = WIDTH as usize / 2 - 2..WIDTH as usize / 2 + 2;
-    const Y_DANGER_RANGE: Range<usize> = INITIAL_Y_POSITION..INITIAL_Y_POSITION + 5;
+    const Y_DANGER_RANGE: Range<usize> =
+      INITIAL_Y_POSITION as usize..INITIAL_Y_POSITION as usize + 5;
 
     let is_in_danger = X_DANGER_RANGE.clone().all(|x| {
       Y_DANGER_RANGE
@@ -341,6 +376,10 @@ impl Playfield {
   pub fn lost(&self) -> bool {
     self.has_lost
   }
+}
+
+fn spawn_tetromino(tetromino: Tetromino) -> FallingPiece {
+  FallingPiece::new(tetromino, INITIAL_X_POSITION, INITIAL_Y_POSITION)
 }
 
 fn valid_position(grid: &Grid, piece: &FallingPiece) -> bool {
