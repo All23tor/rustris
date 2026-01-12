@@ -87,7 +87,7 @@ impl Menu {
       self.selected_option = self.selected_option.prev();
     }
 
-    let change = if rl.is_key_pressed(KeyboardKey::KEY_LEFT) {
+    let change: i32 = if rl.is_key_pressed(KeyboardKey::KEY_LEFT) {
       -1
     } else if rl.is_key_pressed(KeyboardKey::KEY_RIGHT) {
       1
@@ -115,11 +115,11 @@ impl Menu {
         }
       }
       Option::DelayedAutoShift => {
-        hand_set.das += hand_set.das.saturating_add_signed(change);
+        hand_set.das = hand_set.das.saturating_add_signed(change);
         hand_set.das = hand_set.das.min(20);
       }
       Option::SoftDropFrames => {
-        hand_set.soft_drop += hand_set.das.saturating_add_signed(change);
+        hand_set.soft_drop = hand_set.soft_drop.saturating_add_signed(change);
         hand_set.soft_drop = hand_set.soft_drop.min(20);
       }
     }

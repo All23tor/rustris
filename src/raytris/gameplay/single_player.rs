@@ -27,9 +27,9 @@ impl SinglePlayer {
     counter_clockwise: |rl| rl.is_key_pressed(KeyboardKey::KEY_Z),
     one_eighty: |rl| rl.is_key_pressed(KeyboardKey::KEY_A),
     hard_drop: |rl| rl.is_key_pressed(KeyboardKey::KEY_SPACE),
-    soft_drop: |rl| rl.is_key_pressed(KeyboardKey::KEY_DOWN),
+    soft_drop: |rl| rl.is_key_down(KeyboardKey::KEY_DOWN),
     undo: |rl| {
-      rl.is_key_pressed(KeyboardKey::KEY_LEFT_CONTROL) && rl.is_key_pressed(KeyboardKey::KEY_Z)
+      rl.is_key_down(KeyboardKey::KEY_LEFT_CONTROL) && rl.is_key_pressed(KeyboardKey::KEY_Z)
     },
     pause: |rl| rl.is_key_pressed(KeyboardKey::KEY_ENTER),
     quit: |rl| rl.is_key_pressed(KeyboardKey::KEY_ESCAPE),
