@@ -1,7 +1,8 @@
 use raylib::{
   RaylibHandle,
   color::Color,
-  ffi::{KeyboardKey, Rectangle},
+  consts::KeyboardKey,
+  math::Rectangle,
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 

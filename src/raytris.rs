@@ -16,6 +16,8 @@ use crate::raytris::{
   },
 };
 
+// We will allow the large memory overhead as most of the time we will be playing instead of on a menu
+#[allow(clippy::large_enum_variant)]
 enum App {
   MainMenu(MainMenu),
   SettingsMenu(SettingsMenu),

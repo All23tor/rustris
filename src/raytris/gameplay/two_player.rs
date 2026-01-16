@@ -1,4 +1,4 @@
-use raylib::{RaylibHandle, ffi::KeyboardKey, math::Vector2, prelude::RaylibDrawHandle};
+use raylib::{RaylibHandle, consts::KeyboardKey, math::Vector2, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
   gameplay::{Controller, DrawingDetails, Game, PLAYFIELD_VECTOR, playfield, screen_vector},

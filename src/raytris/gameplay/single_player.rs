@@ -1,4 +1,4 @@
-use raylib::{RaylibHandle, ffi::KeyboardKey, prelude::RaylibDrawHandle};
+use raylib::{RaylibHandle, consts::KeyboardKey, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
   gameplay::{

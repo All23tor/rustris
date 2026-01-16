@@ -8,7 +8,7 @@ use std::{
 use raylib::{
   RaylibHandle,
   color::Color,
-  ffi::KeyboardKey,
+  consts::KeyboardKey,
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 

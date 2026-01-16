@@ -249,17 +249,17 @@ impl Playfield {
     let front_count = corners[0..2]
       .iter()
       .filter(|&&(cx, cy)| {
-        let x = piece.x as i32 + cx as i32;
-        let y = piece.y as i32 + cy as i32;
-        !valid_mino(x as i32, y as i32) || grid[y as usize][x as usize] != Tetromino::Empty
+        let x = piece.x as i32 + cx;
+        let y = piece.y as i32 + cy;
+        !valid_mino(x, y) || grid[y as usize][x as usize] != Tetromino::Empty
       })
       .count();
     let back_count = corners[2..4]
       .iter()
       .filter(|&&(cx, cy)| {
-        let x = piece.x as i32 + cx as i32;
-        let y = piece.y as i32 + cy as i32;
-        !valid_mino(x as i32, y as i32) || grid[y as usize][x as usize] != Tetromino::Empty
+        let x = piece.x as i32 + cx;
+        let y = piece.y as i32 + cy;
+        !valid_mino(x, y) || grid[y as usize][x as usize] != Tetromino::Empty
       })
       .count();
 
