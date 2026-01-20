@@ -54,8 +54,8 @@ impl SinglePlayer {
       self.game.playfield = top;
       if self.undo_stack.is_empty() {
         self.undo_stack.push(self.game.playfield.clone());
-        return;
       }
+      return;
     }
 
     if self.game.update(rl) {

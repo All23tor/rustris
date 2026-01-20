@@ -153,7 +153,7 @@ impl Playfield {
       }
     } else if (c.right_das)(rl) {
       self.frames_pressed = self.frames_pressed.min(0) - 1;
-      if -self.frames_pressed < h.das as i32 {
+      if -self.frames_pressed > h.das as i32 {
         try_das(Shift::Right);
       }
     } else {
@@ -449,16 +449,11 @@ impl Playfield {
       rld,
     );
 
-    const X_DANGER_RANGE: Range<usize> = WIDTH as usize / 2 - 2..WIDTH as usize / 2 + 2;
-    const Y_DANGER_RANGE: Range<usize> =
-      INITIAL_Y_POSITION as usize..INITIAL_Y_POSITION as usize + 5;
+    const X_DANGER: Range<usize> = WIDTH as usize / 2 - 2..WIDTH as usize / 2 + 2;
+    const Y_DANGER: Range<usize> = INITIAL_Y_POSITION as usize..INITIAL_Y_POSITION as usize + 5;
 
-    let is_in_danger = X_DANGER_RANGE.clone().all(|x| {
-      Y_DANGER_RANGE
-        .clone()
-        .all(|y| self.grid[y][x] != Tetromino::Empty)
-    });
-    if is_in_danger {
+    let mut danger_zone = X_DANGER.flat_map(|x| Y_DANGER.map(move |y| (x, y)));
+    if danger_zone.any(|(x, y)| self.grid[y][x] != Tetromino::Empty) {
       draw_piece_danger(self.next_queue[0], d, rld);
     }
   }

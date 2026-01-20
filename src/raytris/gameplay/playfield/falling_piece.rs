@@ -60,7 +60,7 @@ impl FallingPiece {
     for coord in &mut self.map.0 {
       *coord = match rt {
         RotationType::Clockwise => (-coord.1, coord.0),
-        RotationType::CounterClockwise => (coord.1, coord.0),
+        RotationType::CounterClockwise => (coord.1, -coord.0),
         RotationType::OneEighty => (-coord.0, -coord.1),
       }
     }
