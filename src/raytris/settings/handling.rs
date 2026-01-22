@@ -1,22 +1,24 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandlingSettings {
-  pub gravity: u32,
-  pub soft_drop: u32,
-  pub lock_delay_frames: u32,
+  pub gravity: Duration,
+  pub soft_drop: Duration,
+  pub das: Duration,
+  pub lock_delay: Duration,
   pub lock_delay_resets: u32,
-  pub das: u32,
 }
 
 impl Default for HandlingSettings {
   fn default() -> Self {
     Self {
-      gravity: 20,
-      soft_drop: 1,
-      lock_delay_frames: 30,
+      gravity: Duration::from_millis(330),
+      soft_drop: Duration::from_millis(160),
+      das: Duration::from_millis(140),
+      lock_delay: Duration::from_millis(500),
       lock_delay_resets: 15,
-      das: 7,
     }
   }
 }

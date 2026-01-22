@@ -3,7 +3,7 @@ mod line_clear_message;
 mod next_queue;
 mod tetromino;
 
-use std::{iter::zip, ops::Range};
+use std::{iter::zip, ops::Range, time::Duration};
 
 use raylib::{
   RaylibHandle,
@@ -42,10 +42,10 @@ pub struct Playfield {
   can_swap: bool,
   has_lost: bool,
   last_move_rotation: bool,
-  frames_since_drop: u32,
-  lock_delay_frames: u32,
+  last_drop: Duration,
+  lock_delay: Duration,
   lock_delay_resets: u32,
-  frames_pressed: i32,
+  das_press: Option<(Shift, Duration)>,
   combo: u32,
   score: u64,
   b2b: u32,
@@ -64,10 +64,10 @@ impl Playfield {
       can_swap: true,
       has_lost: false,
       last_move_rotation: false,
-      frames_since_drop: 0,
-      lock_delay_frames: 0,
+      last_drop: Duration::ZERO,
+      lock_delay: Duration::ZERO,
       lock_delay_resets: 0,
-      frames_pressed: 0,
+      das_press: None,
       combo: 0,
       score: 0,
       b2b: 0,
@@ -81,20 +81,24 @@ impl Playfield {
     self.score = last_score;
   }
 
-  pub fn update(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) -> bool {
+  pub fn update(
+    &mut self,
+    c: &Controller,
+    h: &HandlingSettings,
+    dt: Duration,
+    rl: &RaylibHandle,
+  ) -> bool {
     if self.has_lost {
       return false;
     }
 
     self.handle_swap(c, rl);
 
-    self.frames_since_drop += 1;
-    self.lock_delay_frames += 1;
-    if self.message.timer > 0 {
-      self.message.timer -= 1;
-    }
+    self.last_drop += dt;
+    self.lock_delay += dt;
+    self.message.remaining_time = self.message.remaining_time.saturating_sub(dt);
 
-    self.handle_shifts(c, h, rl);
+    self.handle_shifts(c, h, dt, rl);
     self.handle_rotations(c, rl);
     self.handle_drops(c, h, rl)
   }
@@ -112,19 +116,25 @@ impl Playfield {
     };
     self.holding_piece = current_tetromino;
     self.can_swap = false;
-    self.frames_since_drop = 0;
-    self.lock_delay_frames = 0;
+    self.last_drop = Duration::ZERO;
+    self.lock_delay = Duration::ZERO;
     self.lock_delay_resets = 0;
     self.last_move_rotation = false;
   }
 
-  fn handle_shifts(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) {
+  fn handle_shifts(
+    &mut self,
+    c: &Controller,
+    h: &HandlingSettings,
+    dt: Duration,
+    rl: &RaylibHandle,
+  ) {
     let mut try_shifting = |shift| {
       let mut shifted_piece = self.falling_piece.clone();
       shifted_piece.shift(shift);
       if valid_position(&self.grid, &shifted_piece) {
         self.falling_piece = shifted_piece;
-        self.lock_delay_frames = 0;
+        self.lock_delay = Duration::ZERO;
         self.lock_delay_resets += 1;
         self.last_move_rotation = false;
       }
@@ -136,28 +146,35 @@ impl Playfield {
     }
 
     let mut try_das = |shift| {
+      let duration = self
+        .das_press
+        .filter(|&(s_shift, _)| s_shift == shift)
+        .map(|(_, duration)| duration)
+        .unwrap_or_default()
+        + dt;
+
+      self.das_press = Some((shift, duration));
+
+      if duration < h.das {
+        return;
+      }
+
       let mut shifted_piece = self.falling_piece.clone();
       shifted_piece.shift(shift);
       while valid_position(&self.grid, &shifted_piece) {
         self.falling_piece = shifted_piece.clone();
-        self.lock_delay_frames = 0;
+        self.lock_delay = Duration::ZERO;
         self.lock_delay_resets += 1;
         shifted_piece.shift(shift);
       }
     };
 
     if (c.left_das)(rl) {
-      self.frames_pressed = self.frames_pressed.max(0) + 1;
-      if self.frames_pressed > h.das as i32 {
-        try_das(Shift::Left);
-      }
+      try_das(Shift::Left);
     } else if (c.right_das)(rl) {
-      self.frames_pressed = self.frames_pressed.min(0) - 1;
-      if -self.frames_pressed > h.das as i32 {
-        try_das(Shift::Right);
-      }
+      try_das(Shift::Right);
     } else {
-      self.frames_pressed = 0;
+      self.das_press = None;
     }
   }
 
@@ -188,7 +205,7 @@ impl Playfield {
 
     rotated_piece.translate(offset);
     self.falling_piece = rotated_piece;
-    self.lock_delay_frames = 0;
+    self.lock_delay = Duration::ZERO;
     self.lock_delay_resets += 1;
     self.last_move_rotation = true;
   }
@@ -206,17 +223,17 @@ impl Playfield {
       return true;
     }
 
-    let soft_fall = (c.soft_drop)(rl) && self.frames_since_drop >= h.soft_drop;
-    let gravity_fall = self.frames_since_drop >= h.gravity;
+    let soft_fall = (c.soft_drop)(rl) && self.last_drop >= h.soft_drop;
+    let gravity_fall = self.last_drop >= h.gravity;
     let is_fall_step = soft_fall || gravity_fall;
     if is_fall_step {
-      self.frames_since_drop = 0
+      self.last_drop = Duration::ZERO
     };
 
     let mut fallen_piece = self.falling_piece.clone();
     fallen_piece.fall();
     let can_fall = valid_position(&self.grid, &fallen_piece);
-    let can_wait = self.lock_delay_frames < h.lock_delay_frames;
+    let can_wait = self.lock_delay < h.lock_delay;
     let can_reset = self.lock_delay_resets < h.lock_delay_resets;
     if !can_fall && (!can_wait || !can_reset) {
       self.solidify_piece();
@@ -226,7 +243,7 @@ impl Playfield {
     if can_fall && is_fall_step {
       self.last_move_rotation = false;
       self.falling_piece.fall();
-      self.lock_delay_frames = 0;
+      self.lock_delay = Duration::ZERO;
       self.lock_delay_resets = 0;
     }
 
@@ -349,8 +366,8 @@ impl Playfield {
 
     let next_tetromino = self.next_queue.next_tetromino();
     self.falling_piece = spawn_tetromino(next_tetromino);
-    self.frames_since_drop = 0;
-    self.lock_delay_frames = 0;
+    self.last_drop = Duration::ZERO;
+    self.lock_delay = Duration::ZERO;
     self.lock_delay_resets = 0;
     self.can_swap = true;
 
@@ -526,8 +543,9 @@ impl Playfield {
   }
 
   fn draw_info(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    if self.message.timer > 0 {
-      let alpha = (255.0 * self.message.timer as f32) / LineClearMessage::DURATION as f32;
+    if self.message.remaining_time > Duration::ZERO {
+      let alpha = 255.0 * self.message.remaining_time.as_secs_f32()
+        / LineClearMessage::DURATION.as_secs_f32();
       if let Some(message) = self.message.message {
         let text_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 4, d);
         let (msg, mut color) = message.info();

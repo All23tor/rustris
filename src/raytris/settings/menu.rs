@@ -3,6 +3,7 @@ use std::{
   fs::{read_to_string, write},
   iter::zip,
   sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
+  time::Duration,
 };
 
 use raylib::{
@@ -43,34 +44,35 @@ fn config_mut() -> RwLockWriteGuard<'static, Config> {
   CONFIG.write().expect("Lock poisoned")
 }
 
-const OPTIONS: [Option; 3] = [
-  Option::Resolution,
-  Option::DelayedAutoShift,
-  Option::SoftDropFrames,
-];
+const OPTIONS: [Option; 3] = [Option::Resolution, Option::Das, Option::SoftDrop];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Option {
   Resolution,
-  DelayedAutoShift,
-  SoftDropFrames,
+  Das,
+  SoftDrop,
 }
 
 impl Option {
   fn next(self) -> Self {
     match self {
-      Self::Resolution => Self::DelayedAutoShift,
-      Self::DelayedAutoShift => Option::SoftDropFrames,
-      Option::SoftDropFrames => Self::Resolution,
+      Self::Resolution => Self::Das,
+      Self::Das => Option::SoftDrop,
+      Option::SoftDrop => Self::Resolution,
     }
   }
   fn prev(self) -> Self {
     match self {
-      Self::Resolution => Option::SoftDropFrames,
-      Self::DelayedAutoShift => Self::Resolution,
-      Option::SoftDropFrames => Self::DelayedAutoShift,
+      Self::Resolution => Option::SoftDrop,
+      Self::Das => Self::Resolution,
+      Option::SoftDrop => Self::Das,
     }
   }
+}
+
+enum Direction {
+  Left,
+  Right,
 }
 
 impl Menu {
@@ -87,22 +89,21 @@ impl Menu {
       self.selected_option = self.selected_option.prev();
     }
 
-    let change: i32 = if rl.is_key_pressed(KeyboardKey::KEY_LEFT) {
-      -1
+    let change = if rl.is_key_pressed(KeyboardKey::KEY_LEFT) {
+      Direction::Left
     } else if rl.is_key_pressed(KeyboardKey::KEY_RIGHT) {
-      1
+      Direction::Right
     } else {
       return;
     };
 
     let mut config = config_mut();
-    let hand_set = &mut config.handling_settings;
+    let hs = &mut config.handling_settings;
     match self.selected_option {
       Option::Resolution => {
         config.resolution = match change {
-          1 => config.resolution.next(),
-          -1 => config.resolution.prev(),
-          _ => return,
+          Direction::Left => config.resolution.prev(),
+          Direction::Right => config.resolution.next(),
         };
 
         let (width, height) = config.resolution.size();
@@ -114,13 +115,20 @@ impl Menu {
           rl.toggle_fullscreen();
         }
       }
-      Option::DelayedAutoShift => {
-        hand_set.das = hand_set.das.saturating_add_signed(change);
-        hand_set.das = hand_set.das.min(20);
+
+      Option::Das => {
+        hs.das = match change {
+          Direction::Left => hs.das.saturating_sub(Duration::from_millis(10)),
+          Direction::Right => hs.das.saturating_add(Duration::from_millis(10)),
+        };
+        hs.das = hs.das.min(Duration::from_millis(330));
       }
-      Option::SoftDropFrames => {
-        hand_set.soft_drop = hand_set.soft_drop.saturating_add_signed(change);
-        hand_set.soft_drop = hand_set.soft_drop.min(20);
+      Option::SoftDrop => {
+        hs.soft_drop = match change {
+          Direction::Left => hs.soft_drop.saturating_sub(Duration::from_millis(10)),
+          Direction::Right => hs.soft_drop.saturating_add(Duration::from_millis(10)),
+        };
+        hs.soft_drop = hs.soft_drop.min(Duration::from_millis(330));
       }
     }
   }
@@ -139,17 +147,12 @@ impl Menu {
       Color::RED,
     );
 
+    let hs = config().handling_settings;
     let resolution = ("Resolution", format!("{} x {}", width, height));
-    let das = (
-      "Delayed Auto Shift",
-      format!("{}", config().handling_settings.das),
-    );
-    let soft_drop_frames = (
-      "Soft Drop Frames",
-      format!("{}", config().handling_settings.soft_drop),
-    );
+    let das = ("DAS", format!("{:0.2}", hs.das.as_secs_f32()));
+    let soft_drop = ("Soft Drop", format!("{:0.2}", hs.soft_drop.as_secs_f32()));
 
-    let options = [resolution, das, soft_drop_frames];
+    let options = [resolution, das, soft_drop];
     for (i, (option, (name, value))) in zip(OPTIONS, options).enumerate() {
       let color = if self.selected_option == option {
         Color::BLUE

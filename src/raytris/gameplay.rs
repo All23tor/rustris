@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use raylib::{
   RaylibHandle,
   color::Color,
@@ -89,7 +91,7 @@ impl Game {
     }
   }
 
-  pub fn update(&mut self, rl: &RaylibHandle) -> bool {
+  pub fn update(&mut self, dt: Duration, rl: &RaylibHandle) -> bool {
     if (self.controller.restart)(rl) {
       self.playfield.restart();
     }
@@ -99,7 +101,9 @@ impl Game {
     if self.pause {
       false
     } else {
-      self.playfield.update(&self.controller, &self.settings, rl)
+      self
+        .playfield
+        .update(&self.controller, &self.settings, dt, rl)
     }
   }
 

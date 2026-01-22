@@ -2,6 +2,8 @@ mod gameplay;
 mod main_menu;
 mod settings;
 
+use std::time::Duration;
+
 use main_menu::MainMenu;
 use raylib::{
   RaylibHandle, RaylibThread, init,
@@ -35,12 +37,12 @@ impl App {
     }
   }
 
-  fn update(&mut self, rl: &mut RaylibHandle) {
+  fn update(&mut self, dt: Duration, rl: &mut RaylibHandle) {
     match self {
       App::MainMenu(main_menu) => main_menu.update(rl),
       App::SettingsMenu(settings_menu) => settings_menu.update(rl),
-      App::SinglePlayer(single_player) => single_player.update(rl),
-      App::TwoPlayer(two_player) => two_player.update(rl),
+      App::SinglePlayer(single_player) => single_player.update(dt, rl),
+      App::TwoPlayer(two_player) => two_player.update(dt, rl),
     }
   }
 
@@ -104,9 +106,12 @@ impl Raytris {
   }
 
   pub fn run(&mut self) {
-    self.rl.set_target_fps(60);
+    self.rl.set_target_fps(300);
+
     while !self.should_stop_running {
-      self.app.update(&mut self.rl);
+      let dt = Duration::from_secs_f32(self.rl.get_frame_time());
+
+      self.app.update(dt, &mut self.rl);
       if self.app.should_stop_running(&self.rl) {
         self.handle_where_to_go();
       }

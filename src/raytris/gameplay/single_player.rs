@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use raylib::{RaylibHandle, consts::KeyboardKey, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
@@ -47,7 +49,7 @@ impl SinglePlayer {
     let undo_stack = vec![game.playfield.clone()];
     Self { game, undo_stack }
   }
-  pub fn update(&mut self, rl: &RaylibHandle) {
+  pub fn update(&mut self, dt: Duration, rl: &RaylibHandle) {
     if (self.game.controller.undo)(rl)
       && let Some(top) = self.undo_stack.pop()
     {
@@ -58,7 +60,7 @@ impl SinglePlayer {
       return;
     }
 
-    if self.game.update(rl) {
+    if self.game.update(dt, rl) {
       self.undo_stack.push(self.game.playfield.clone());
     }
   }

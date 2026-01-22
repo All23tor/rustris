@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use raylib::{RaylibHandle, consts::KeyboardKey, math::Vector2, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
@@ -67,9 +69,9 @@ impl TwoPlayer {
     Self { game1, game2 }
   }
 
-  pub fn update(&mut self, rl: &RaylibHandle) {
-    self.game1.update(rl);
-    self.game2.update(rl);
+  pub fn update(&mut self, dt: Duration, rl: &RaylibHandle) {
+    self.game1.update(dt, rl);
+    self.game2.update(dt, rl);
     self.game2.pause = self.game1.pause;
   }
 

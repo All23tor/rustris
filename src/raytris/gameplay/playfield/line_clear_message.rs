@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use raylib::color::Color;
 
 #[derive(Clone, Copy)]
@@ -30,17 +32,17 @@ pub enum SpinType {
 #[derive(Clone)]
 pub struct LineClearMessage {
   pub message: Option<MessageType>,
-  pub timer: u8,
+  pub remaining_time: Duration,
   pub spin_type: Option<SpinType>,
 }
 
 impl LineClearMessage {
-  pub const DURATION: u8 = 180;
+  pub const DURATION: Duration = Duration::from_secs(2);
 
   pub fn empty() -> Self {
     Self {
       message: None,
-      timer: 0,
+      remaining_time: Duration::ZERO,
       spin_type: None,
     }
   }
@@ -48,7 +50,7 @@ impl LineClearMessage {
   pub fn new(message: Option<MessageType>, spin_type: Option<SpinType>) -> Self {
     Self {
       message,
-      timer: Self::DURATION,
+      remaining_time: Self::DURATION,
       spin_type,
     }
   }
