@@ -57,7 +57,7 @@ impl FallingPiece {
   }
 
   pub fn rotate(&mut self, rt: RotationType) {
-    for coord in &mut self.map.0 {
+    for coord in &mut self.map {
       *coord = match rt {
         RotationType::Clockwise => (-coord.1, coord.0),
         RotationType::CounterClockwise => (coord.1, -coord.0),

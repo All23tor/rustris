@@ -12,8 +12,7 @@ pub enum Tetromino {
   Empty,
 }
 
-#[derive(Clone)]
-pub struct TetrominoMap(pub [(i8, i8); 4]);
+pub type TetrominoMap = [(i8, i8); 4];
 
 impl Tetromino {
   pub fn color(self) -> Color {
@@ -29,7 +28,7 @@ impl Tetromino {
     }
   }
   pub fn initial_map(self) -> TetrominoMap {
-    TetrominoMap(match self {
+    match self {
       Tetromino::I => [(-1, 0), (0, 0), (1, 0), (2, 0)],
       Tetromino::O => [(0, -1), (1, -1), (0, 0), (1, 0)],
       Tetromino::T => [(0, -1), (-1, 0), (0, 0), (1, 0)],
@@ -38,6 +37,6 @@ impl Tetromino {
       Tetromino::J => [(-1, -1), (-1, 0), (0, 0), (1, 0)],
       Tetromino::L => [(1, -1), (-1, 0), (0, 0), (1, 0)],
       Tetromino::Empty => [(0, 0), (0, 0), (0, 0), (0, 0)],
-    })
+    }
   }
 }

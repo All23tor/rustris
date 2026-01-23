@@ -1,7 +1,6 @@
 use rand::{rng, seq::SliceRandom};
 
 use crate::raytris::gameplay::playfield::tetromino::Tetromino;
-use std::ops::Index;
 
 pub const NEXT_SIZE: usize = 5;
 pub const SIZE_OF_BAG: usize = 7;
@@ -46,11 +45,12 @@ impl NextQueue {
     }
     next
   }
-}
 
-impl Index<usize> for NextQueue {
-  type Output = Tetromino;
-  fn index(&self, index: usize) -> &Self::Output {
-    &self.queue[self.size - 1 - index]
+  pub fn peek(&self) -> Tetromino {
+    self.queue[self.size - 1]
+  }
+
+  pub fn queue(&self) -> impl Iterator<Item = Tetromino> {
+    self.queue.iter().take(self.size).rev().cloned()
   }
 }
