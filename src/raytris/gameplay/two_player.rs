@@ -81,6 +81,6 @@ impl TwoPlayer {
   }
 
   pub fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
-    (self.game1.controller.quit)(rl) && (self.game1.pause || self.game1.playfield.lost())
+    (self.game1.controller.quit)(rl) && (self.game1.pause || self.game1.has_lost)
   }
 }

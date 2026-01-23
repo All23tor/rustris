@@ -1,7 +1,6 @@
 mod falling_piece;
-mod line_clear_message;
 mod next_queue;
-mod tetromino;
+pub mod tetromino;
 
 use std::{iter::zip, ops::Range, time::Duration};
 
@@ -15,9 +14,9 @@ use raylib::{
 use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
+    line_clear_message::SpinType,
     playfield::{
       falling_piece::{FallingPiece, Orientation, RotationType, Shift},
-      line_clear_message::{LineClearMessage, MessageType, SpinType},
       next_queue::{NEXT_SIZE, NextQueue},
       tetromino::{Tetromino, TetrominoMap},
     },
@@ -33,6 +32,13 @@ const INITIAL_Y_POSITION: i8 = VISIBLE_HEIGHT as i8 - 1;
 
 type Grid = [[Tetromino; WIDTH as usize]; HEIGHT as usize];
 
+pub struct UpdateInfo {
+  pub cleared_lines: u32,
+  pub spin_type: Option<SpinType>,
+  pub is_all_clear: bool,
+  pub has_lost: bool,
+}
+
 #[derive(Clone)]
 pub struct Playfield {
   grid: Grid,
@@ -40,16 +46,11 @@ pub struct Playfield {
   falling_piece: FallingPiece,
   holding_piece: Tetromino,
   can_swap: bool,
-  has_lost: bool,
   last_move_rotation: bool,
   last_drop: Duration,
   lock_delay: Duration,
   lock_delay_resets: u32,
   das_press: Option<(Shift, Duration)>,
-  combo: u32,
-  score: u64,
-  b2b: u32,
-  message: LineClearMessage,
 }
 
 impl Playfield {
@@ -62,23 +63,12 @@ impl Playfield {
       falling_piece,
       holding_piece: Tetromino::Empty,
       can_swap: true,
-      has_lost: false,
       last_move_rotation: false,
       last_drop: Duration::ZERO,
       lock_delay: Duration::ZERO,
       lock_delay_resets: 0,
       das_press: None,
-      combo: 0,
-      score: 0,
-      b2b: 0,
-      message: LineClearMessage::empty(),
     }
-  }
-
-  pub fn restart(&mut self) {
-    let last_score = self.score;
-    *self = Playfield::new();
-    self.score = last_score;
   }
 
   pub fn update(
@@ -87,17 +77,11 @@ impl Playfield {
     h: &HandlingSettings,
     dt: Duration,
     rl: &RaylibHandle,
-  ) -> bool {
-    if self.has_lost {
-      return false;
-    }
-
-    self.handle_swap(c, rl);
-
+  ) -> Option<UpdateInfo> {
     self.last_drop += dt;
     self.lock_delay += dt;
-    self.message.remaining_time = self.message.remaining_time.saturating_sub(dt);
 
+    self.handle_swap(c, rl);
     self.handle_shifts(c, h, dt, rl);
     self.handle_rotations(c, rl);
     self.handle_drops(c, h, rl)
@@ -210,7 +194,12 @@ impl Playfield {
     self.last_move_rotation = true;
   }
 
-  fn handle_drops(&mut self, c: &Controller, h: &HandlingSettings, rl: &RaylibHandle) -> bool {
+  fn handle_drops(
+    &mut self,
+    c: &Controller,
+    h: &HandlingSettings,
+    rl: &RaylibHandle,
+  ) -> Option<UpdateInfo> {
     if (c.hard_drop)(rl) {
       let mut fallen = self.falling_piece.clone();
       fallen.fall();
@@ -219,8 +208,7 @@ impl Playfield {
         fallen.fall();
         self.last_move_rotation = false;
       }
-      self.solidify_piece();
-      return true;
+      return Some(self.solidify_piece());
     }
 
     let soft_fall = (c.soft_drop)(rl) && self.last_drop >= h.soft_drop;
@@ -236,8 +224,7 @@ impl Playfield {
     let can_wait = self.lock_delay < h.lock_delay;
     let can_reset = self.lock_delay_resets < h.lock_delay_resets;
     if !can_fall && (!can_wait || !can_reset) {
-      self.solidify_piece();
-      return true;
+      return Some(self.solidify_piece());
     }
 
     if can_fall && is_fall_step {
@@ -247,7 +234,7 @@ impl Playfield {
       self.lock_delay_resets = 0;
     }
 
-    false
+    None
   }
 
   fn is_spin(piece: &FallingPiece, grid: &Grid) -> Option<SpinType> {
@@ -289,7 +276,7 @@ impl Playfield {
     }
   }
 
-  fn solidify_piece(&mut self) {
+  fn solidify_piece(&mut self) -> UpdateInfo {
     let mut topped_out = true;
 
     for (cx, cy) in self.falling_piece.map {
@@ -317,52 +304,10 @@ impl Playfield {
       }
     }
 
-    if cleared_lines == 0 {
-      self.combo = 0;
-    } else {
-      self.combo += 1;
-      if cleared_lines == 4 || spin_type.is_some() {
-        self.b2b += 1;
-      } else {
-        self.b2b = 0;
-      }
-    }
-
-    self.score += (self.combo * 50) as u64;
-    let b2b_factor = if self.b2b >= 2 { 3 } else { 2 };
-    const SCORE_TABLE: [[u64; 5]; 3] = [
-      /* cleared:  0   1    2    3    4  */
-      /*NoSpin */ [0, 100, 300, 500, 800],
-      /*Mini   */ [100, 200, 400, 0, 0],
-      /*Proper */ [400, 800, 1200, 1600, 0],
-    ];
-    let spin_index = match spin_type {
-      None => 0,
-      Some(SpinType::Mini) => 1,
-      Some(SpinType::Proper) => 2,
-    };
-    self.score += b2b_factor * SCORE_TABLE[spin_index][cleared_lines] / 2;
-
-    let message = match cleared_lines {
-      0 => None,
-      1 => Some(MessageType::Single),
-      2 => Some(MessageType::Double),
-      3 => Some(MessageType::Triple),
-      4 => Some(MessageType::Tetris),
-      _ => panic!(),
-    };
-
-    self.message = LineClearMessage::new(message, spin_type);
-
     let is_all_clear = self
       .grid
       .iter()
       .all(|row| row.iter().all(|&mino| mino == Tetromino::Empty));
-
-    if is_all_clear {
-      self.message.message = Some(MessageType::AllClear);
-      self.score += 3500 * b2b_factor / 2;
-    }
 
     let next_tetromino = self.next_queue.next_tetromino();
     self.falling_piece = spawn_tetromino(next_tetromino);
@@ -377,7 +322,14 @@ impl Playfield {
       self.grid[y as usize][x as usize] == Tetromino::Empty
     });
 
-    self.has_lost = topped_out || !can_spawn_piece;
+    let has_lost = topped_out || !can_spawn_piece;
+
+    UpdateInfo {
+      cleared_lines,
+      spin_type,
+      is_all_clear,
+      has_lost,
+    }
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
@@ -385,7 +337,6 @@ impl Playfield {
     self.draw_tetrion_pieces(d, rld);
     self.draw_next_queue(d, rld);
     self.draw_hold_piece(d, rld);
-    self.draw_info(d, rld);
   }
 
   fn draw_tetrion(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
@@ -548,97 +499,6 @@ impl Playfield {
       d,
       rld,
     );
-  }
-
-  fn draw_info(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    if self.message.remaining_time > Duration::ZERO {
-      let alpha = 255.0 * self.message.remaining_time.as_secs_f32()
-        / LineClearMessage::DURATION.as_secs_f32();
-      if let Some(message) = self.message.message {
-        let text_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 4, d);
-        let (msg, mut color) = message.info();
-        color.a = alpha as u8;
-        rld.draw_text(
-          msg,
-          text_rect.x as i32,
-          text_rect.y as i32,
-          d.font_size,
-          color,
-        );
-      }
-
-      if let Some(spin_type) = self.message.spin_type {
-        let mut spin_color = Tetromino::T.color();
-        spin_color.a = alpha as u8;
-        let spin_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 6, d);
-        rld.draw_text(
-          "TSPIN",
-          spin_rect.x as i32,
-          spin_rect.y as i32,
-          d.font_size,
-          spin_color,
-        );
-        if spin_type == SpinType::Mini {
-          let mini_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 7, d);
-          rld.draw_text(
-            "MINI",
-            mini_rect.x as i32,
-            mini_rect.y as i32,
-            d.font_size_small,
-            spin_color,
-          );
-        }
-      }
-    }
-
-    if self.combo >= 2 {
-      let combo_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 10, d);
-      rld.draw_text(
-        "COMBO ",
-        combo_rect.x as i32,
-        combo_rect.y as i32,
-        d.font_size,
-        Color::BLUE,
-      );
-      rld.draw_text(
-        &format!("{}", self.combo),
-        combo_rect.x as i32 + rld.measure_text("COMBO ", d.font_size),
-        combo_rect.y as i32,
-        d.font_size,
-        Color::BLUE,
-      );
-    }
-
-    if self.b2b >= 2 {
-      let b2b_rect = get_block(DrawingDetails::LEFT_BORDER, HEIGHT - 12, d);
-      rld.draw_text(
-        "B2B ",
-        b2b_rect.x as i32,
-        b2b_rect.y as i32,
-        d.font_size,
-        Color::BLUE,
-      );
-      rld.draw_text(
-        &format!("{}", self.b2b - 1),
-        b2b_rect.x as i32 + rld.measure_text("B2B ", d.font_size),
-        b2b_rect.y as i32,
-        d.font_size,
-        Color::BLUE,
-      );
-    }
-
-    let score_rect = get_block(WIDTH + 1, HEIGHT - 2, d);
-    rld.draw_text(
-      &format!("{:09}", self.score),
-      score_rect.x as i32,
-      (score_rect.y + d.block_length * 0.5) as i32,
-      d.font_size,
-      DrawingDetails::INFO_TEXT_COLOR,
-    );
-  }
-
-  pub fn lost(&self) -> bool {
-    self.has_lost
   }
 }
 

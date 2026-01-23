@@ -70,6 +70,6 @@ impl SinglePlayer {
   }
 
   pub fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
-    (self.game.controller.quit)(rl) && (self.game.pause || self.game.playfield.lost())
+    (self.game.controller.quit)(rl) && (self.game.pause || self.game.has_lost)
   }
 }
