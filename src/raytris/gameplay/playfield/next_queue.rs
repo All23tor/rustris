@@ -51,6 +51,12 @@ impl NextQueue {
   }
 
   pub fn queue(&self) -> impl Iterator<Item = Tetromino> {
-    self.queue.iter().take(self.size).rev().cloned()
+    self
+      .queue
+      .iter()
+      .take(self.size)
+      .rev()
+      .take(NEXT_SIZE)
+      .cloned()
   }
 }
