@@ -34,7 +34,7 @@ type Grid = [[Tetromino; WIDTH as usize]; HEIGHT as usize];
 
 pub struct UpdateInfo {
   pub cleared_lines: u32,
-  pub spin_type: Option<SpinType>,
+  pub spin: Option<(Tetromino, SpinType)>,
   pub is_all_clear: bool,
   pub has_lost: bool,
 }
@@ -238,6 +238,7 @@ impl Playfield {
   }
 
   fn is_spin(piece: &FallingPiece, grid: &Grid) -> Option<SpinType> {
+    // Disable this check to allow all spins
     if piece.tetromino != Tetromino::T {
       return None;
     }
@@ -289,6 +290,7 @@ impl Playfield {
       }
     }
 
+    let tetromino = self.falling_piece.tetromino;
     let spin_type = if self.last_move_rotation {
       Self::is_spin(&self.falling_piece, &self.grid)
     } else {
@@ -323,10 +325,11 @@ impl Playfield {
     });
 
     let has_lost = topped_out || !can_spawn_piece;
+    let spin = spin_type.map(|spin_type| (tetromino, spin_type));
 
     UpdateInfo {
       cleared_lines,
-      spin_type,
+      spin,
       is_all_clear,
       has_lost,
     }
@@ -350,7 +353,7 @@ impl Playfield {
     rld.draw_rectangle_lines_ex(
       tetrion,
       d.block_length / 10.0,
-      DrawingDetails::GRINDLINE_COLOR,
+      DrawingDetails::GRIDLINE_COLOR,
     );
 
     for mut p in (1..WIDTH).map(|i| get_block(i, VISIBLE_HEIGHT, d)) {
@@ -363,7 +366,7 @@ impl Playfield {
           y: (p.y + VISIBLE_HEIGHT as f32 * d.block_length).floor(),
         },
         d.block_length / 10.0,
-        DrawingDetails::GRINDLINE_COLOR,
+        DrawingDetails::GRIDLINE_COLOR,
       );
     }
 
@@ -377,7 +380,7 @@ impl Playfield {
           y: p.y,
         },
         d.block_length / 10.0,
-        DrawingDetails::GRINDLINE_COLOR,
+        DrawingDetails::GRIDLINE_COLOR,
       );
     }
 

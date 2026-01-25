@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use raylib::color::Color;
 
+use crate::raytris::gameplay::playfield::tetromino::Tetromino;
+
 #[derive(Clone, Copy)]
 pub enum MessageType {
   Single,
@@ -33,7 +35,7 @@ pub enum SpinType {
 pub struct LineClearMessage {
   pub message: Option<MessageType>,
   pub remaining_time: Duration,
-  pub spin_type: Option<SpinType>,
+  pub spin: Option<(Tetromino, SpinType)>,
 }
 
 impl LineClearMessage {
@@ -43,15 +45,15 @@ impl LineClearMessage {
     Self {
       message: None,
       remaining_time: Duration::ZERO,
-      spin_type: None,
+      spin: None,
     }
   }
 
-  pub fn new(message: Option<MessageType>, spin_type: Option<SpinType>) -> Self {
+  pub fn new(message: Option<MessageType>, spin: Option<(Tetromino, SpinType)>) -> Self {
     Self {
       message,
       remaining_time: Self::DURATION,
-      spin_type,
+      spin,
     }
   }
 }

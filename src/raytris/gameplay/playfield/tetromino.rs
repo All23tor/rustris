@@ -39,4 +39,17 @@ impl Tetromino {
       Tetromino::Empty => [(0, 0), (0, 0), (0, 0), (0, 0)],
     }
   }
+
+  pub fn name(self) -> &'static str {
+    match self {
+      Tetromino::I => "I",
+      Tetromino::O => "O",
+      Tetromino::T => "T",
+      Tetromino::S => "S",
+      Tetromino::Z => "Z",
+      Tetromino::J => "J",
+      Tetromino::L => "L",
+      Tetromino::Empty => "",
+    }
+  }
 }
