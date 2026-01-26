@@ -9,7 +9,6 @@ pub enum Tetromino {
   S,
   J,
   L,
-  Empty,
 }
 
 pub type TetrominoMap = [(i8, i8); 4];
@@ -24,7 +23,6 @@ impl Tetromino {
       Self::S => Color::new(66, 182, 66, 255),
       Self::J => Color::new(90, 101, 173, 255),
       Self::L => Color::new(239, 121, 33, 255),
-      Self::Empty => Color::BLANK,
     }
   }
   pub fn initial_map(self) -> TetrominoMap {
@@ -36,7 +34,6 @@ impl Tetromino {
       Tetromino::Z => [(-1, -1), (0, -1), (0, 0), (1, 0)],
       Tetromino::J => [(-1, -1), (-1, 0), (0, 0), (1, 0)],
       Tetromino::L => [(1, -1), (-1, 0), (0, 0), (1, 0)],
-      Tetromino::Empty => [(0, 0), (0, 0), (0, 0), (0, 0)],
     }
   }
 
@@ -49,7 +46,6 @@ impl Tetromino {
       Tetromino::Z => "Z",
       Tetromino::J => "J",
       Tetromino::L => "L",
-      Tetromino::Empty => "",
     }
   }
 }

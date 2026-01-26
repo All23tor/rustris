@@ -30,7 +30,7 @@ pub const VISIBLE_HEIGHT: i32 = 20;
 const INITIAL_X_POSITION: i8 = (WIDTH as i8 - 1) / 2;
 const INITIAL_Y_POSITION: i8 = VISIBLE_HEIGHT as i8 - 1;
 
-type Grid = [[Tetromino; WIDTH as usize]; HEIGHT as usize];
+type Grid = [[Option<Tetromino>; WIDTH as usize]; HEIGHT as usize];
 
 pub struct UpdateInfo {
   pub cleared_lines: u32,
@@ -43,7 +43,7 @@ pub struct Playfield {
   grid: Grid,
   next_queue: NextQueue,
   falling_piece: FallingPiece,
-  holding_piece: Tetromino,
+  holding_piece: Option<Tetromino>,
   can_swap: bool,
   last_move_rotation: bool,
   last_drop: Duration,
@@ -58,10 +58,10 @@ impl Playfield {
     let mut next_queue = NextQueue::new();
     let falling_piece = spawn_tetromino(next_queue.next_tetromino());
     Self {
-      grid: [[Tetromino::Empty; _]; _],
+      grid: [[None; _]; _],
       next_queue,
       falling_piece,
-      holding_piece: Tetromino::Empty,
+      holding_piece: None,
       can_swap: true,
       last_move_rotation: false,
       last_drop: Duration::ZERO,
@@ -102,12 +102,12 @@ impl Playfield {
     }
 
     let current_tetromino = self.falling_piece.tetromino;
-    self.falling_piece = if self.holding_piece != Tetromino::Empty {
-      spawn_tetromino(self.holding_piece)
-    } else {
-      spawn_tetromino(self.next_queue.next_tetromino())
-    };
-    self.holding_piece = current_tetromino;
+    self.falling_piece = spawn_tetromino(
+      self
+        .holding_piece
+        .unwrap_or_else(|| self.next_queue.next_tetromino()),
+    );
+    self.holding_piece = Some(current_tetromino);
     self.can_swap = false;
     self.last_drop = Duration::ZERO;
     self.lock_delay = Duration::ZERO;
@@ -265,7 +265,7 @@ impl Playfield {
       .filter(|&&(cx, cy)| {
         let x = piece.x as i32 + cx;
         let y = piece.y as i32 + cy;
-        !valid_mino(x, y) || grid[y as usize][x as usize] != Tetromino::Empty
+        !valid_mino(x, y) || grid[y as usize][x as usize].is_some()
       })
       .count();
     let back_count = corners[2..4]
@@ -273,7 +273,7 @@ impl Playfield {
       .filter(|&&(cx, cy)| {
         let x = piece.x as i32 + cx;
         let y = piece.y as i32 + cy;
-        !valid_mino(x, y) || grid[y as usize][x as usize] != Tetromino::Empty
+        !valid_mino(x, y) || grid[y as usize][x as usize].is_some()
       })
       .count();
 
@@ -292,7 +292,7 @@ impl Playfield {
     for (cx, cy) in self.falling_piece.map {
       let x = cx as i32 + self.falling_piece.x as i32;
       let y = cy as i32 + self.falling_piece.y as i32;
-      self.grid[y as usize][x as usize] = self.falling_piece.tetromino;
+      self.grid[y as usize][x as usize] = Some(self.falling_piece.tetromino);
 
       if y >= VISIBLE_HEIGHT {
         topped_out = false;
@@ -308,9 +308,9 @@ impl Playfield {
 
     let mut cleared_lines = 0;
     for row_idx in 0..HEIGHT as usize {
-      if self.grid[row_idx].iter().all(|&m| m != Tetromino::Empty) {
+      if self.grid[row_idx].iter().all(|&m| m.is_some()) {
         self.grid.copy_within(0..row_idx, 1);
-        self.grid[0].fill(Tetromino::Empty);
+        self.grid[0].fill(None);
         cleared_lines += 1;
       }
     }
@@ -318,7 +318,7 @@ impl Playfield {
     let is_all_clear = self
       .grid
       .iter()
-      .all(|row| row.iter().all(|&mino| mino == Tetromino::Empty));
+      .all(|row| row.iter().all(|&mino| mino.is_none()));
 
     let next_tetromino = self.next_queue.next_tetromino();
     self.falling_piece = spawn_tetromino(next_tetromino);
@@ -330,7 +330,7 @@ impl Playfield {
     let can_spawn_piece = self.falling_piece.map.iter().all(|&(cx, cy)| {
       let x = cx as i32 + self.falling_piece.x as i32;
       let y = cy as i32 + self.falling_piece.y as i32;
-      self.grid[y as usize][x as usize] == Tetromino::Empty
+      self.grid[y as usize][x as usize].is_none()
     });
 
     self.has_lost = topped_out || !can_spawn_piece;
@@ -398,7 +398,8 @@ impl Playfield {
       .enumerate()
       .flat_map(|(j, row)| row.iter().enumerate().map(move |(i, mino)| (i, j, mino)))
     {
-      draw_block_pretty(i as i32, j as i32, d, mino.color(), rld);
+      let color = mino.map_or(Color::BLANK, |t| t.color());
+      draw_block_pretty(i as i32, j as i32, d, color, rld);
     }
   }
 
@@ -432,7 +433,7 @@ impl Playfield {
     const Y_DANGER: Range<usize> = INITIAL_Y_POSITION as usize..INITIAL_Y_POSITION as usize + 5;
 
     let mut danger_zone = X_DANGER.flat_map(|x| Y_DANGER.map(move |y| (x, y)));
-    if danger_zone.any(|(x, y)| self.grid[y][x] != Tetromino::Empty) {
+    if danger_zone.any(|(x, y)| self.grid[y][x].is_some()) {
       draw_piece_danger(self.next_queue.peek(), d, rld);
     }
   }
@@ -496,14 +497,18 @@ impl Playfield {
       DrawingDetails::PIECE_BOX_COLOR,
     );
 
+    let Some(holding_piece) = self.holding_piece else {
+      return;
+    };
+
     let color = if self.can_swap {
-      self.holding_piece.color()
+      holding_piece.color()
     } else {
       DrawingDetails::UNAVAILABLE_HOLD_PIECE_COLOR
     };
 
     draw_piece(
-      &self.holding_piece.initial_map(),
+      &holding_piece.initial_map(),
       color,
       -5,
       4 + VISIBLE_HEIGHT,
@@ -521,7 +526,7 @@ fn valid_position(grid: &Grid, piece: &FallingPiece) -> bool {
   piece.map.iter().all(|(cx, cy)| {
     let x = (cx + piece.x) as i32;
     let y = (cy + piece.y) as i32;
-    valid_mino(x, y) && grid[y as usize][x as usize] == Tetromino::Empty
+    valid_mino(x, y) && grid[y as usize][x as usize].is_none()
   })
 }
 

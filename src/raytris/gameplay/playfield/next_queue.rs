@@ -1,15 +1,15 @@
 use rand::{rng, seq::SliceRandom};
+use std::collections::VecDeque;
 
 use crate::raytris::gameplay::playfield::tetromino::Tetromino;
 
 pub const NEXT_SIZE: usize = 5;
-pub const SIZE_OF_BAG: usize = 7;
-pub const MAX_QUEUE_SIZE: usize = NEXT_SIZE + SIZE_OF_BAG;
+const SIZE_OF_BAG: usize = 7;
+const MAX_QUEUE_SIZE: usize = NEXT_SIZE + SIZE_OF_BAG;
 
 #[derive(Clone)]
 pub struct NextQueue {
-  queue: [Tetromino; MAX_QUEUE_SIZE],
-  size: usize,
+  queue: VecDeque<Tetromino>,
 }
 
 impl NextQueue {
@@ -24,39 +24,31 @@ impl NextQueue {
   ];
 
   pub fn new() -> Self {
-    let mut queue = [Tetromino::Empty; MAX_QUEUE_SIZE];
-    queue[0..SIZE_OF_BAG].copy_from_slice(&Self::NEW_BAG);
-    queue[0..SIZE_OF_BAG].shuffle(&mut rng());
+    let mut queue = VecDeque::with_capacity(MAX_QUEUE_SIZE);
+    Self::push_new_bag(&mut queue);
+    Self { queue }
+  }
 
-    Self {
-      queue,
-      size: SIZE_OF_BAG,
-    }
+  fn push_new_bag(queue: &mut VecDeque<Tetromino>) {
+    let mut bag = Self::NEW_BAG;
+    bag.shuffle(&mut rng());
+    queue.extend(bag);
   }
 
   pub fn next_tetromino(&mut self) -> Tetromino {
-    self.size -= 1;
-    let next = self.queue[self.size];
-    if self.size <= NEXT_SIZE {
-      self.queue.copy_within(0..self.size, SIZE_OF_BAG);
-      self.queue[0..SIZE_OF_BAG].copy_from_slice(&Self::NEW_BAG);
-      self.queue[0..SIZE_OF_BAG].shuffle(&mut rng());
-      self.size += SIZE_OF_BAG;
+    let tetromino = self.queue.pop_front().expect("queue should never be empty");
+    if self.queue.len() < NEXT_SIZE {
+      Self::push_new_bag(&mut self.queue);
     }
-    next
+
+    tetromino
   }
 
   pub fn peek(&self) -> Tetromino {
-    self.queue[self.size - 1]
+    *self.queue.front().expect("queue should never be empty")
   }
 
   pub fn queue(&self) -> impl Iterator<Item = Tetromino> {
-    self
-      .queue
-      .iter()
-      .take(self.size)
-      .rev()
-      .take(NEXT_SIZE)
-      .cloned()
+    self.queue.iter().take(NEXT_SIZE).copied()
   }
 }
