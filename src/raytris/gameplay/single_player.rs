@@ -1,19 +1,27 @@
 use std::time::Duration;
 
-use raylib::{RaylibHandle, consts::KeyboardKey, prelude::RaylibDrawHandle};
+use raylib::{
+  RaylibHandle,
+  color::Color,
+  consts::KeyboardKey,
+  prelude::{RaylibDraw, RaylibDrawHandle},
+};
 
 use crate::raytris::{
   gameplay::{
-    Controller, DrawingDetails, Game, PLAYFIELD_VECTOR,
-    playfield::{self, Playfield},
-    screen_vector,
+    Controller, DrawingDetails,
+    game::{Game, PLAYFIELD_VECTOR, screen_vector},
+    playfield::{self},
   },
   settings::handling::HandlingSettings,
 };
 
 pub struct SinglePlayer {
   game: Game,
-  undo_stack: Vec<Playfield>,
+  pause: bool,
+  drawing_details: DrawingDetails,
+  handling_settings: HandlingSettings,
+  undo_stack: Vec<Game>,
 }
 
 // TODO: implement saving and loading game state
@@ -44,32 +52,120 @@ impl SinglePlayer {
     DrawingDetails::new(block_length, position)
   }
 
-  pub fn new(settings: HandlingSettings, rl: &RaylibHandle) -> Self {
-    let game = Game::new(Self::drawing_details(rl), Self::KEYBOARD_CONTROLS, settings);
-    let undo_stack = vec![game.playfield.clone()];
-    Self { game, undo_stack }
+  pub fn new(handling_settings: HandlingSettings, rl: &RaylibHandle) -> Self {
+    let game = Game::new();
+    let pause = false;
+    let drawing_details = Self::drawing_details(rl);
+    let undo_stack = vec![game.clone()];
+    Self {
+      game,
+      pause,
+      drawing_details,
+      handling_settings,
+      undo_stack,
+    }
   }
   pub fn update(&mut self, dt: Duration, rl: &RaylibHandle) {
-    if (self.game.controller.undo)(rl)
+    if (Self::KEYBOARD_CONTROLS.undo)(rl)
       && let Some(top) = self.undo_stack.pop()
     {
-      self.game.playfield = top;
+      self.game = top;
       if self.undo_stack.is_empty() {
-        self.undo_stack.push(self.game.playfield.clone());
+        self.undo_stack.push(self.game.clone());
       }
       return;
     }
 
-    if self.game.update(dt, rl) {
-      self.undo_stack.push(self.game.playfield.clone());
+    if (Self::KEYBOARD_CONTROLS.restart)(rl) {
+      self.game.reset();
+    }
+
+    if (Self::KEYBOARD_CONTROLS.pause)(rl) {
+      self.pause = !self.pause;
+    }
+
+    if !self.pause
+      && self
+        .game
+        .update(dt, &Self::KEYBOARD_CONTROLS, &self.handling_settings, rl)
+    {
+      self.undo_stack.push(self.game.clone());
     }
   }
 
   pub fn draw(&self, rld: &mut RaylibDrawHandle) {
-    self.game.draw(rld);
+    rld.clear_background(DrawingDetails::BACKGROUND_COLOR);
+    self.game.draw(&self.drawing_details, rld);
+
+    if self.pause {
+      self.draw_pause(rld);
+    } else if self.game.has_lost() {
+      self.draw_lost(rld);
+    }
   }
 
   pub fn should_stop_running(&self, rl: &RaylibHandle) -> bool {
-    (self.game.controller.quit)(rl) && (self.game.pause || self.game.has_lost)
+    (Self::KEYBOARD_CONTROLS.quit)(rl) && (self.pause || self.game.has_lost())
+  }
+
+  fn draw_lost(&self, rld: &mut RaylibDrawHandle) {
+    let (width, height) = (rld.get_screen_width(), rld.get_render_height());
+    let (half_width, half_height) = (width / 2, height / 2);
+    let font_size_big = self.drawing_details.font_size_big;
+
+    const LOST_COLOR: Color = Color::RED;
+    const LOST_TEXT: &str = "YOU LOST";
+    let x_offset = -rld.measure_text(LOST_TEXT, font_size_big) / 2;
+
+    rld.draw_rectangle(0, 0, width, height, DrawingDetails::DARKEN_COLOR);
+    rld.draw_text(
+      LOST_TEXT,
+      half_width + x_offset,
+      half_height,
+      font_size_big,
+      LOST_COLOR,
+    );
+
+    self.draw_quit(rld);
+  }
+
+  fn draw_pause(&self, rld: &mut RaylibDrawHandle) {
+    let (width, height) = (rld.get_screen_width(), rld.get_render_height());
+    let (half_width, half_height) = (width / 2, height / 2);
+    let font_size_big = self.drawing_details.font_size_big;
+
+    const PAUSED_COLOR: Color = Color::BLUE;
+    const PAUSED_TEXT: &str = "GAME PAUSED";
+    let x_offset = -rld.measure_text(PAUSED_TEXT, font_size_big) / 2;
+
+    rld.draw_rectangle(0, 0, width, height, DrawingDetails::DARKEN_COLOR);
+    rld.draw_text(
+      PAUSED_TEXT,
+      half_width + x_offset,
+      half_height,
+      font_size_big,
+      PAUSED_COLOR,
+    );
+
+    self.draw_quit(rld);
+  }
+
+  fn draw_quit(&self, rld: &mut RaylibDrawHandle) {
+    let font_size = self.drawing_details.font_size;
+    let font_size_big = self.drawing_details.font_size_big;
+    let (half_width, half_height) = (rld.get_screen_width() / 2, rld.get_render_height() / 2);
+
+    const QUIT_COLOR: Color = Color::WHITE;
+    const QUIT_TEXT: &str = "Press Esc to quit";
+    let x_offset = -rld.measure_text(QUIT_TEXT, font_size) / 2;
+    let y_offset = font_size_big;
+
+    rld.draw_text(
+      QUIT_TEXT,
+      half_width + x_offset,
+      half_height + y_offset,
+      font_size,
+      QUIT_COLOR,
+    );
   }
 }

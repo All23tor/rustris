@@ -5,13 +5,10 @@ mod settings;
 use std::time::Duration;
 
 use main_menu::MainMenu;
-use raylib::{
-  RaylibHandle, RaylibThread, init,
-  prelude::{RaylibDraw, RaylibDrawHandle},
-};
+use raylib::{RaylibHandle, RaylibThread, init, prelude::RaylibDrawHandle};
 
 use crate::raytris::{
-  gameplay::{BACKGROUND_COLOR, single_player::SinglePlayer, two_player::TwoPlayer},
+  gameplay::{single_player::SinglePlayer, two_player::TwoPlayer},
   settings::{
     menu::{Menu as SettingsMenu, config},
     resolution::Resolution,
@@ -116,9 +113,7 @@ impl Raytris {
         self.handle_where_to_go();
       }
 
-      let mut d = self.rl.begin_drawing(&self.thread);
-      d.clear_background(BACKGROUND_COLOR);
-      self.app.draw(&mut d);
+      self.app.draw(&mut self.rl.begin_drawing(&self.thread));
     }
   }
 }

@@ -36,7 +36,6 @@ pub struct UpdateInfo {
   pub cleared_lines: u32,
   pub spin: Option<(Tetromino, SpinType)>,
   pub is_all_clear: bool,
-  pub has_lost: bool,
 }
 
 #[derive(Clone)]
@@ -51,6 +50,7 @@ pub struct Playfield {
   lock_delay: Duration,
   lock_delay_resets: u32,
   das_press: Option<(Shift, Duration)>,
+  has_lost: bool,
 }
 
 impl Playfield {
@@ -68,7 +68,12 @@ impl Playfield {
       lock_delay: Duration::ZERO,
       lock_delay_resets: 0,
       das_press: None,
+      has_lost: false,
     }
+  }
+
+  pub fn has_lost(&self) -> bool {
+    self.has_lost
   }
 
   pub fn update(
@@ -78,6 +83,10 @@ impl Playfield {
     dt: Duration,
     rl: &RaylibHandle,
   ) -> Option<UpdateInfo> {
+    if self.has_lost {
+      return None;
+    }
+
     self.last_drop += dt;
     self.lock_delay += dt;
 
@@ -324,14 +333,13 @@ impl Playfield {
       self.grid[y as usize][x as usize] == Tetromino::Empty
     });
 
-    let has_lost = topped_out || !can_spawn_piece;
+    self.has_lost = topped_out || !can_spawn_piece;
     let spin = spin_type.map(|spin_type| (tetromino, spin_type));
 
     UpdateInfo {
       cleared_lines,
       spin,
       is_all_clear,
-      has_lost,
     }
   }
 
