@@ -42,11 +42,11 @@ impl FallingPiece {
   }
 
   pub fn fall(&mut self) {
-    self.y += 1;
+    self.y -= 1;
   }
 
   pub fn unfall(&mut self) {
-    self.y -= 1;
+    self.y += 1;
   }
 
   pub fn shift(&mut self, shift: Shift) {
@@ -59,8 +59,8 @@ impl FallingPiece {
   pub fn rotate(&mut self, rt: RotationType) {
     for coord in &mut self.map {
       *coord = match rt {
-        RotationType::Clockwise => (-coord.1, coord.0),
-        RotationType::CounterClockwise => (coord.1, -coord.0),
+        RotationType::Clockwise => (coord.1, -coord.0),
+        RotationType::CounterClockwise => (-coord.1, coord.0),
         RotationType::OneEighty => (-coord.0, -coord.1),
       }
     }
@@ -91,21 +91,21 @@ impl FallingPiece {
   pub fn offsets(&self) -> &'static OffsetTable {
     static I_TABLE: [OffsetTable; 4] = [
       [(0, 0), (-1, 0), (2, 0), (-1, 0), (2, 0)],
-      [(-1, 0), (0, 0), (0, 0), (0, -1), (0, 2)],
-      [(-1, -1), (1, -1), (-2, -1), (1, 0), (-2, 0)],
-      [(0, -1), (0, -1), (0, -1), (0, 1), (0, -2)],
+      [(-1, 0), (0, 0), (0, 0), (0, 1), (0, -2)],
+      [(-1, 1), (1, 1), (-2, 1), (1, 0), (-2, 0)],
+      [(0, 1), (0, 1), (0, 1), (0, -1), (0, 2)],
     ];
     static O_TABLE: [OffsetTable; 4] = [
       [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
-      [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1)],
-      [(-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1)],
+      [(0, -1), (0, -1), (0, -1), (0, -1), (0, -1)],
+      [(-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
       [(-1, 0), (-1, 0), (-1, 0), (-1, 0), (-1, 0)],
     ];
     static DEFAULT_TABLE: [OffsetTable; 4] = [
       [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
-      [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],
+      [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],
       [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
-      [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],
+      [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],
     ];
 
     let offset_table = match self.tetromino {

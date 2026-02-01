@@ -11,7 +11,7 @@ use crate::raytris::{
   gameplay::{
     Controller, DrawingDetails,
     line_clear_message::{LineClearMessage, MessageType, SpinType},
-    playfield::{self, Playfield, UpdateInfo},
+    playfield::{Playfield, UpdateInfo, VISIBLE_HEIGHT, WIDTH},
   },
   settings::handling::HandlingSettings,
 };
@@ -71,6 +71,17 @@ impl Game {
       is_all_clear,
     } = update_info;
 
+    let message = match cleared_lines {
+      0 => None,
+      1 => Some(MessageType::Single),
+      2 => Some(MessageType::Double),
+      3 => Some(MessageType::Triple),
+      4 => Some(MessageType::Tetris),
+      _ => panic!("cleared more than 4 lines at the same time"),
+    };
+
+    self.message = LineClearMessage::new(message, spin);
+
     if cleared_lines == 0 {
       self.combo = 0;
     } else {
@@ -96,17 +107,6 @@ impl Game {
       Some(SpinType::Proper) => 2,
     };
     self.score += b2b_factor * SCORE_TABLE[spin_index][cleared_lines as usize] / 2;
-
-    let message = match cleared_lines {
-      0 => None,
-      1 => Some(MessageType::Single),
-      2 => Some(MessageType::Double),
-      3 => Some(MessageType::Triple),
-      4 => Some(MessageType::Tetris),
-      _ => panic!(),
-    };
-
-    self.message = LineClearMessage::new(message, spin);
 
     if is_all_clear {
       self.message.message = Some(MessageType::AllClear);
@@ -137,11 +137,7 @@ impl Game {
     let duration = self.message.remaining_time.as_secs_f32();
     let alpha = (255.0 * duration / MAX_DURATION) as u8;
     if let Some(message) = self.message.message {
-      let Vector2 { x, y } = get_block(
-        DrawingDetails::LEFT_BORDER,
-        playfield::HEIGHT - 4,
-        drawing_details,
-      );
+      let Vector2 { x, y } = get_block(DrawingDetails::LEFT_BORDER, 4, drawing_details);
       let (msg, mut color) = message.info();
       color.a = alpha;
       rld.draw_text(msg, x as i32, y as i32, drawing_details.font_size, color);
@@ -152,19 +148,11 @@ impl Game {
       let font_size_small = drawing_details.font_size_small;
       let mut spin_color = tetromino.color();
       spin_color.a = alpha;
-      let Vector2 { x, y } = get_block(
-        DrawingDetails::LEFT_BORDER,
-        playfield::HEIGHT - 6,
-        drawing_details,
-      );
+      let Vector2 { x, y } = get_block(DrawingDetails::LEFT_BORDER, 6, drawing_details);
       let spin_text = format!("{}-SPIN", tetromino.name());
       rld.draw_text(&spin_text, x as i32, y as i32, font_size, spin_color);
       if spin_type == SpinType::Mini {
-        let Vector2 { x, y } = get_block(
-          DrawingDetails::LEFT_BORDER,
-          playfield::HEIGHT - 7,
-          drawing_details,
-        );
+        let Vector2 { x, y } = get_block(DrawingDetails::LEFT_BORDER, 7, drawing_details);
         rld.draw_text("MINI", x as i32, y as i32, font_size_small, spin_color);
       }
     }
@@ -173,11 +161,7 @@ impl Game {
   fn draw_combo(&self, drawing_details: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     const COMBO_TEXT: &str = "COMBO ";
     let font_size = drawing_details.font_size;
-    let Vector2 { x, y } = get_block(
-      DrawingDetails::LEFT_BORDER,
-      playfield::HEIGHT - 10,
-      drawing_details,
-    );
+    let Vector2 { x, y } = get_block(DrawingDetails::LEFT_BORDER, 10, drawing_details);
     let (x, y) = (x as i32, y as i32);
     let combo = format!("{}", self.combo);
     let x_offset = rld.measure_text(COMBO_TEXT, drawing_details.font_size);
@@ -189,11 +173,7 @@ impl Game {
   fn draw_b2b(&self, drawing_details: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     const B2B_TEXT: &str = "B2B ";
     let font_size = drawing_details.font_size;
-    let Vector2 { x, y } = get_block(
-      DrawingDetails::LEFT_BORDER,
-      playfield::HEIGHT - 12,
-      drawing_details,
-    );
+    let Vector2 { x, y } = get_block(DrawingDetails::LEFT_BORDER, 12, drawing_details);
     let (x, y) = (x as i32, y as i32);
     let b2b = format!("{}", self.b2b - 1);
     let x_offset = rld.measure_text(B2B_TEXT, drawing_details.font_size);
@@ -204,7 +184,7 @@ impl Game {
 
   fn draw_score(&self, drawing_details: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     let font_size = drawing_details.font_size;
-    let Vector2 { x, y } = get_block(playfield::WIDTH + 1, playfield::HEIGHT - 2, drawing_details);
+    let Vector2 { x, y } = get_block(WIDTH + 1, 1, drawing_details);
     let (x, y) = (x as i32, y as i32);
     let score = format!("{:09}", self.score);
     let y_offset = (drawing_details.block_length / 2.0) as i32;
@@ -222,7 +202,7 @@ impl Game {
 fn get_block(i: i32, j: i32, d: &DrawingDetails) -> Vector2 {
   Vector2 {
     x: d.position.x + i as f32 * d.block_length,
-    y: d.position.y + (j - playfield::VISIBLE_HEIGHT) as f32 * d.block_length,
+    y: d.position.y + (VISIBLE_HEIGHT - j - 1) as f32 * d.block_length,
   }
 }
 
@@ -234,6 +214,6 @@ pub fn screen_vector(rl: &RaylibHandle) -> Vector2 {
 }
 
 pub const PLAYFIELD_VECTOR: Vector2 = Vector2 {
-  x: playfield::WIDTH as f32,
-  y: playfield::VISIBLE_HEIGHT as f32,
+  x: WIDTH as f32,
+  y: VISIBLE_HEIGHT as f32,
 };

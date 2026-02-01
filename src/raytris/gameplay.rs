@@ -35,7 +35,7 @@ struct DrawingDetails {
 impl DrawingDetails {
   const HEIGHT_SCALE_FACTOR: f32 = 0.80;
   const DEFAULT_PRETTY_OUTLINE: Color = Color::new(0, 0, 0, 255 / 8);
-  const TETRION_BACKGROUND_COLOR: Color = Color::BLACK;
+  const GRID_BACKGROUND_COLOR: Color = Color::BLACK;
   const GRIDLINE_COLOR: Color = Color::DARKGRAY;
   const UNAVAILABLE_HOLD_PIECE_COLOR: Color = Color::DARKGRAY;
   const PIECES_BACKGROUND_COLOR: Color = Color::GRAY;

@@ -28,7 +28,7 @@ pub const WIDTH: i32 = 10;
 pub const HEIGHT: i32 = 40;
 pub const VISIBLE_HEIGHT: i32 = 20;
 const INITIAL_X_POSITION: i8 = (WIDTH as i8 - 1) / 2;
-const INITIAL_Y_POSITION: i8 = VISIBLE_HEIGHT as i8 - 1;
+const INITIAL_Y_POSITION: i8 = VISIBLE_HEIGHT as i8;
 
 type Grid = [[Option<Tetromino>; WIDTH as usize]; HEIGHT as usize];
 
@@ -294,7 +294,7 @@ impl Playfield {
       let y = cy as i32 + self.falling_piece.y as i32;
       self.grid[y as usize][x as usize] = Some(self.falling_piece.tetromino);
 
-      if y >= VISIBLE_HEIGHT {
+      if y < VISIBLE_HEIGHT {
         topped_out = false;
       }
     }
@@ -307,18 +307,15 @@ impl Playfield {
     };
 
     let mut cleared_lines = 0;
-    for row_idx in 0..HEIGHT as usize {
+    for row_idx in (0..HEIGHT as usize).rev() {
       if self.grid[row_idx].iter().all(|&m| m.is_some()) {
-        self.grid.copy_within(0..row_idx, 1);
-        self.grid[0].fill(None);
+        self.grid.copy_within(row_idx + 1..HEIGHT as usize, row_idx);
+        self.grid[HEIGHT as usize - 1].fill(None);
         cleared_lines += 1;
       }
     }
 
-    let is_all_clear = self
-      .grid
-      .iter()
-      .all(|row| row.iter().all(|&mino| mino.is_none()));
+    let is_all_clear = self.grid.as_flattened().iter().all(|mino| mino.is_none());
 
     let next_tetromino = self.next_queue.next_tetromino();
     self.falling_piece = spawn_tetromino(next_tetromino);
@@ -344,66 +341,56 @@ impl Playfield {
   }
 
   pub fn draw(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    self.draw_tetrion(d, rld);
-    self.draw_tetrion_pieces(d, rld);
+    self.draw_grid(d, rld);
+    self.draw_main_pieces(d, rld);
     self.draw_next_queue(d, rld);
     self.draw_hold_piece(d, rld);
   }
 
-  fn draw_tetrion(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    let tetrion = Rectangle {
+  fn draw_grid(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+    let grid_rec = Rectangle {
       x: d.position.x,
       y: d.position.y,
       width: d.block_length * WIDTH as f32,
       height: d.block_length * VISIBLE_HEIGHT as f32,
     };
-    rld.draw_rectangle_rec(tetrion, DrawingDetails::TETRION_BACKGROUND_COLOR);
-    rld.draw_rectangle_lines_ex(
-      tetrion,
-      d.block_length / 10.0,
-      DrawingDetails::GRIDLINE_COLOR,
-    );
+    rld.draw_rectangle_rec(grid_rec, DrawingDetails::GRID_BACKGROUND_COLOR);
 
-    for mut p in (1..WIDTH).map(|i| get_block(i, VISIBLE_HEIGHT, d)) {
-      p.x = p.x.floor();
-      p.y = p.y.floor();
-      rld.draw_line_ex(
-        p,
-        Vector2 {
-          x: p.x,
-          y: (p.y + VISIBLE_HEIGHT as f32 * d.block_length).floor(),
-        },
-        d.block_length / 10.0,
-        DrawingDetails::GRIDLINE_COLOR,
-      );
+    let line_width = d.block_length / 10.0;
+    rld.draw_rectangle_lines_ex(grid_rec, line_width, DrawingDetails::GRIDLINE_COLOR);
+
+    for Vector2 { x, y } in (0..WIDTH).map(|i| get_block(i, VISIBLE_HEIGHT - 1, d)) {
+      let p0 = Vector2 {
+        x: x.floor(),
+        y: y.floor(),
+      };
+      let p1 = Vector2 {
+        x: x.floor(),
+        y: (y + VISIBLE_HEIGHT as f32 * d.block_length).floor(),
+      };
+      rld.draw_line_ex(p0, p1, line_width, DrawingDetails::GRIDLINE_COLOR);
+    }
+    for Vector2 { x, y } in (0..VISIBLE_HEIGHT).map(|j| get_block(0, j, d)) {
+      let p0 = Vector2 {
+        x: x.floor(),
+        y: y.floor(),
+      };
+      let p1 = Vector2 {
+        x: (x + d.block_length * WIDTH as f32).floor(),
+        y: y.floor(),
+      };
+      rld.draw_line_ex(p0, p1, line_width, DrawingDetails::GRIDLINE_COLOR);
     }
 
-    for mut p in (1..VISIBLE_HEIGHT).map(|j| get_block(0, j + VISIBLE_HEIGHT, d)) {
-      p.x = p.x.floor();
-      p.y = p.y.floor();
-      rld.draw_line_ex(
-        p,
-        Vector2 {
-          x: (p.x + d.block_length * WIDTH as f32).floor(),
-          y: p.y,
-        },
-        d.block_length / 10.0,
-        DrawingDetails::GRIDLINE_COLOR,
-      );
-    }
-
-    for (i, j, mino) in self
-      .grid
-      .iter()
-      .enumerate()
-      .flat_map(|(j, row)| row.iter().enumerate().map(move |(i, mino)| (i, j, mino)))
-    {
-      let color = mino.map_or(Color::BLANK, |t| t.color());
-      draw_block_pretty(i as i32, j as i32, d, color, rld);
+    for (j, row) in self.grid.iter().enumerate() {
+      for (i, mino) in row.iter().enumerate() {
+        let color = mino.map_or(Color::BLANK, |t| t.color());
+        draw_block_pretty(i as i32, j as i32, d, color, rld);
+      }
     }
   }
 
-  fn draw_tetrion_pieces(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
+  fn draw_main_pieces(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
     let mut ghost_piece = self.falling_piece.clone();
     ghost_piece.fall();
     while valid_position(&self.grid, &ghost_piece) {
@@ -429,8 +416,8 @@ impl Playfield {
       rld,
     );
 
-    const X_DANGER: Range<usize> = WIDTH as usize / 2 - 2..WIDTH as usize / 2 + 2;
-    const Y_DANGER: Range<usize> = INITIAL_Y_POSITION as usize..INITIAL_Y_POSITION as usize + 5;
+    const X_DANGER: Range<usize> = INITIAL_X_POSITION as usize - 2..INITIAL_X_POSITION as usize + 2;
+    const Y_DANGER: Range<usize> = INITIAL_Y_POSITION as usize - 5..INITIAL_Y_POSITION as usize;
 
     let mut danger_zone = X_DANGER.flat_map(|x| Y_DANGER.map(move |y| (x, y)));
     if danger_zone.any(|(x, y)| self.grid[y][x].is_some()) {
@@ -439,7 +426,7 @@ impl Playfield {
   }
 
   fn draw_next_queue(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    let Vector2 { x: bg_x, y: bg_y } = get_block(WIDTH + 1, VISIBLE_HEIGHT + 2, d);
+    let Vector2 { x: bg_x, y: bg_y } = get_block(WIDTH + 1, VISIBLE_HEIGHT - 3, d);
     let background = Rectangle {
       x: bg_x,
       y: bg_y,
@@ -453,11 +440,11 @@ impl Playfield {
       DrawingDetails::PIECE_BOX_COLOR,
     );
 
-    let text_rect = get_block(WIDTH + 1, VISIBLE_HEIGHT, d);
+    let text = get_block(WIDTH + 1, VISIBLE_HEIGHT - 1, d);
     rld.draw_text(
       "NEXT",
-      text_rect.x as i32,
-      text_rect.y as i32,
+      text.x as i32,
+      text.y as i32,
       d.font_size,
       DrawingDetails::INFO_TEXT_COLOR,
     );
@@ -467,7 +454,7 @@ impl Playfield {
         &tetromino.initial_map(),
         tetromino.color(),
         WIDTH + 3,
-        3 * (id as i32 + 1) + VISIBLE_HEIGHT + 1,
+        -3 * id as i32 + VISIBLE_HEIGHT - 5,
         d,
         rld,
       );
@@ -475,15 +462,15 @@ impl Playfield {
   }
 
   fn draw_hold_piece(&self, d: &DrawingDetails, rld: &mut RaylibDrawHandle) {
-    let text_rect = get_block(-7, VISIBLE_HEIGHT, d);
+    let text = get_block(-7, VISIBLE_HEIGHT - 1, d);
     rld.draw_text(
       "HOLD",
-      text_rect.x as i32,
-      text_rect.y as i32,
+      text.x as i32,
+      text.y as i32,
       d.font_size,
       DrawingDetails::INFO_TEXT_COLOR,
     );
-    let Vector2 { x: bg_x, y: bg_y } = get_block(-7, VISIBLE_HEIGHT + 2, d);
+    let Vector2 { x: bg_x, y: bg_y } = get_block(-7, VISIBLE_HEIGHT - 3, d);
     let background = Rectangle {
       x: bg_x,
       y: bg_y,
@@ -511,7 +498,7 @@ impl Playfield {
       &holding_piece.initial_map(),
       color,
       -5,
-      4 + VISIBLE_HEIGHT,
+      -5 + VISIBLE_HEIGHT,
       d,
       rld,
     );
@@ -535,9 +522,10 @@ fn valid_mino(x: i32, y: i32) -> bool {
 }
 
 fn get_block(i: i32, j: i32, d: &DrawingDetails) -> Vector2 {
+  let y_offset = (VISIBLE_HEIGHT as f32 - 1.0) * d.block_length;
   Vector2 {
     x: d.position.x + i as f32 * d.block_length,
-    y: d.position.y + (j - VISIBLE_HEIGHT) as f32 * d.block_length,
+    y: d.position.y + y_offset - j as f32 * d.block_length,
   }
 }
 
