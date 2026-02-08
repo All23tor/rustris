@@ -1,4 +1,4 @@
-use crate::raytris::gameplay::playfield::tetromino::{Tetromino, TetrominoMap};
+use super::tetromino::{Tetromino, TetrominoMap};
 
 #[derive(Clone, Copy)]
 pub enum Orientation {

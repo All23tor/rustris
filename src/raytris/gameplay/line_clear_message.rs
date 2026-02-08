@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use raylib::color::Color;
 
-use crate::raytris::gameplay::playfield::tetromino::Tetromino;
+use super::playfield::tetromino::Tetromino;
 
 #[derive(Clone, Copy)]
 pub enum MessageType {

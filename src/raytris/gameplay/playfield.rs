@@ -11,17 +11,14 @@ use raylib::{
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
-use crate::raytris::{
-  gameplay::{
-    Controller, DrawingDetails,
-    line_clear_message::SpinType,
-    playfield::{
-      falling_piece::{FallingPiece, Orientation, RotationType, Shift},
-      next_queue::{NEXT_SIZE, NextQueue},
-      tetromino::{Tetromino, TetrominoMap},
-    },
+use super::{
+  Controller, DrawingDetails, HandlingSettings,
+  line_clear_message::SpinType,
+  playfield::{
+    falling_piece::{FallingPiece, Orientation, RotationType, Shift},
+    next_queue::{NEXT_SIZE, NextQueue},
+    tetromino::{Tetromino, TetrominoMap},
   },
-  settings::handling::HandlingSettings,
 };
 
 pub const WIDTH: i32 = 10;

@@ -1,3 +1,10 @@
+use raylib::{
+  RaylibHandle,
+  color::Color,
+  consts::KeyboardKey,
+  prelude::{RaylibDraw, RaylibDrawHandle},
+  window::{get_current_monitor, get_monitor_height, get_monitor_width},
+};
 use serde::{Deserialize, Serialize};
 use std::{
   fs::{read_to_string, write},
@@ -6,20 +13,52 @@ use std::{
   time::Duration,
 };
 
-use raylib::{
-  RaylibHandle,
-  color::Color,
-  consts::KeyboardKey,
-  prelude::{RaylibDraw, RaylibDrawHandle},
-};
+use super::gameplay::HandlingSettings;
 
-use crate::raytris::settings::{handling::HandlingSettings, resolution::Resolution};
-
-pub struct Menu {
+pub struct SettingsMenu {
   selected_option: Option,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Resolution {
+  Small,
+  #[default]
+  Medium,
+  Big,
+  Fullscreen,
+}
+
+impl Resolution {
+  pub fn next(self) -> Self {
+    match self {
+      Resolution::Small => Resolution::Medium,
+      Resolution::Medium => Self::Big,
+      Self::Big => Self::Fullscreen,
+      Self::Fullscreen => Self::Small,
+    }
+  }
+  pub fn prev(self) -> Self {
+    match self {
+      Self::Small => Self::Fullscreen,
+      Resolution::Medium => Resolution::Small,
+      Self::Big => Resolution::Medium,
+      Self::Fullscreen => Self::Big,
+    }
+  }
+  pub fn size(self) -> (i32, i32) {
+    match self {
+      Resolution::Small => (640, 360),
+      Resolution::Medium => (960, 540),
+      Resolution::Big => (1280, 720),
+      Resolution::Fullscreen => {
+        let monitor = get_current_monitor();
+        (get_monitor_width(monitor), get_monitor_height(monitor))
+      }
+    }
+  }
+}
+
+#[derive(Default, Serialize, Deserialize)]
 pub struct Config {
   pub resolution: Resolution,
   pub handling_settings: HandlingSettings,
@@ -75,7 +114,7 @@ enum Direction {
   Right,
 }
 
-impl Menu {
+impl SettingsMenu {
   pub fn new() -> Self {
     Self {
       selected_option: Option::Resolution,
@@ -97,21 +136,23 @@ impl Menu {
       return;
     };
 
-    let mut config = config_mut();
-    let hs = &mut config.handling_settings;
+    let Config {
+      resolution,
+      handling_settings: hs,
+    } = &mut *config_mut();
     match self.selected_option {
       Option::Resolution => {
-        config.resolution = match change {
-          Direction::Left => config.resolution.prev(),
-          Direction::Right => config.resolution.next(),
+        *resolution = match change {
+          Direction::Left => resolution.prev(),
+          Direction::Right => resolution.next(),
         };
 
-        let (width, height) = config.resolution.size();
+        let (width, height) = resolution.size();
         if rl.is_window_fullscreen() {
           rl.toggle_fullscreen();
         }
         rl.set_window_size(width, height);
-        if config.resolution == Resolution::Fullscreen {
+        if *resolution == Resolution::Fullscreen {
           rl.toggle_fullscreen();
         }
       }
@@ -134,7 +175,11 @@ impl Menu {
   }
 
   pub fn draw(&self, rld: &mut RaylibDrawHandle) {
-    let (width, height) = config().resolution.size();
+    let Config {
+      resolution,
+      handling_settings: hs,
+    } = &mut *config_mut();
+    let (width, height) = resolution.size();
     let font_size = height as f32 / 12.0;
     let font_size_big = height as f32 / 4.0;
 
@@ -147,7 +192,6 @@ impl Menu {
       Color::RED,
     );
 
-    let hs = config().handling_settings;
     let resolution = ("Resolution", format!("{} x {}", width, height));
     let das = ("DAS", format!("{:0.2}", hs.das.as_secs_f32()));
     let soft_drop = ("Soft Drop", format!("{:0.2}", hs.soft_drop.as_secs_f32()));
@@ -182,7 +226,7 @@ impl Menu {
   }
 }
 
-impl Drop for Menu {
+impl Drop for SettingsMenu {
   fn drop(&mut self) {
     let Ok(serialized) = serde_json::to_string::<Config>(&config()) else {
       return;

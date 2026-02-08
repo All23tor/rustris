@@ -5,6 +5,8 @@ pub mod single_player;
 pub mod two_player;
 
 use raylib::{RaylibHandle, color::Color, math::Vector2};
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 type Input = fn(&RaylibHandle) -> bool;
 struct Controller {
@@ -52,6 +54,27 @@ impl DrawingDetails {
       font_size_big: block_length as i32 * 5,
       font_size_small: block_length as i32,
       position,
+    }
+  }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandlingSettings {
+  pub gravity: Duration,
+  pub soft_drop: Duration,
+  pub das: Duration,
+  pub lock_delay: Duration,
+  pub lock_delay_resets: u32,
+}
+
+impl Default for HandlingSettings {
+  fn default() -> Self {
+    Self {
+      gravity: Duration::from_millis(330),
+      soft_drop: Duration::from_millis(160),
+      das: Duration::from_millis(140),
+      lock_delay: Duration::from_millis(500),
+      lock_delay_resets: 15,
     }
   }
 }

@@ -7,13 +7,10 @@ use raylib::{
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
-use crate::raytris::{
-  gameplay::{
-    Controller, DrawingDetails,
-    game::{Game, PLAYFIELD_VECTOR, screen_vector},
-    playfield::{self},
-  },
-  settings::handling::HandlingSettings,
+use super::{
+  Controller, DrawingDetails, HandlingSettings,
+  game::{Game, PLAYFIELD_VECTOR, screen_vector},
+  playfield::VISIBLE_HEIGHT,
 };
 
 pub struct SinglePlayer {
@@ -46,8 +43,8 @@ impl SinglePlayer {
   };
 
   fn drawing_details(rl: &RaylibHandle) -> DrawingDetails {
-    let block_length = DrawingDetails::HEIGHT_SCALE_FACTOR * rl.get_screen_height() as f32
-      / playfield::VISIBLE_HEIGHT as f32;
+    let block_length =
+      DrawingDetails::HEIGHT_SCALE_FACTOR * rl.get_screen_height() as f32 / VISIBLE_HEIGHT as f32;
     let position = (screen_vector(rl) - PLAYFIELD_VECTOR * block_length) / 2.0;
     DrawingDetails::new(block_length, position)
   }

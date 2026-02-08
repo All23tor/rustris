@@ -7,13 +7,10 @@ use raylib::{
   prelude::{RaylibDraw, RaylibDrawHandle},
 };
 
-use crate::raytris::{
-  gameplay::{
-    Controller, DrawingDetails,
-    line_clear_message::{LineClearMessage, MessageType, SpinType},
-    playfield::{Playfield, UpdateInfo, VISIBLE_HEIGHT, WIDTH},
-  },
-  settings::handling::HandlingSettings,
+use super::{
+  Controller, DrawingDetails, HandlingSettings,
+  line_clear_message::{LineClearMessage, MessageType, SpinType},
+  playfield::{Playfield, UpdateInfo, VISIBLE_HEIGHT, WIDTH},
 };
 
 #[derive(Clone)]

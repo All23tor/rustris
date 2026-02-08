@@ -1,7 +1,7 @@
 use rand::{rng, seq::SliceRandom};
 use std::collections::VecDeque;
 
-use crate::raytris::gameplay::playfield::tetromino::Tetromino;
+use super::tetromino::Tetromino;
 
 pub const NEXT_SIZE: usize = 5;
 const SIZE_OF_BAG: usize = 7;

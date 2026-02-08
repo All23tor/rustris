@@ -4,16 +4,11 @@ mod settings;
 
 use std::time::Duration;
 
-use main_menu::MainMenu;
 use raylib::{RaylibHandle, RaylibThread, init, prelude::RaylibDrawHandle};
 
-use crate::raytris::{
-  gameplay::{single_player::SinglePlayer, two_player::TwoPlayer},
-  settings::{
-    menu::{Menu as SettingsMenu, config},
-    resolution::Resolution,
-  },
-};
+use gameplay::{single_player::SinglePlayer, two_player::TwoPlayer};
+use main_menu::MainMenu;
+use settings::{Resolution, SettingsMenu, config};
 
 // We will allow the large memory overhead as most of the time we will be playing instead of on a menu
 #[allow(clippy::large_enum_variant)]
